@@ -11,17 +11,6 @@ This system addresses the debt collection lifecycle from assignment to closure, 
 - **Explainable AI**: SHAP and LIME explanations for model decisions
 - **MLOps Integration**: Complete pipeline with monitoring, drift detection, and CI/CD
 
-## 📊 Evaluation Criteria Alignment
-
-| Area | Weight | Implementation |
-|------|--------|----------------|
-| **Data Understanding & Preprocessing** | 15% | ✅ Comprehensive EDA, advanced preprocessing, data quality assessment |
-| **Model Architecture & Scalability** | 25% | ✅ Modular design, multiple algorithms, ensemble methods, containerization |
-| **Predictive Accuracy & Metrics** | 25% | ✅ Cross-validation, hyperparameter optimization, business-specific metrics |
-| **Explainability & Interpretability** | 15% | ✅ SHAP/LIME integration, feature importance, business explanations |
-| **Production Readiness & MLOps** | 10% | ✅ Model registry, monitoring, CI/CD, drift detection |
-| **Innovation & Presentation** | 10% | ✅ Interactive dashboards, comprehensive documentation, web scraping |
-
 ## 🏗️ Architecture
 
 ```
@@ -170,14 +159,14 @@ recommendation = recommender.get_comprehensive_recommendation(customer_data)
 print(f"Recommended channel: {recommendation['channel_recommendation']['channel']}")
 ```
 
-## 📊 Model Performance
+<!-- ## 📊 Model Performance
 
 | Model | Accuracy | F1-Score | ROC-AUC | Business F1 | Recovery Precision |
 |-------|----------|----------|---------|-------------|-------------------|
 | XGBoost | 0.847 | 0.834 | 0.891 | 0.823 | 0.856 |
 | LightGBM | 0.842 | 0.829 | 0.887 | 0.818 | 0.851 |
 | Random Forest | 0.839 | 0.825 | 0.883 | 0.814 | 0.847 |
-| Ensemble | 0.851 | 0.838 | 0.894 | 0.827 | 0.859 |
+| Ensemble | 0.851 | 0.838 | 0.894 | 0.827 | 0.859 | -->
 
 ## 🔍 Key Insights
 
@@ -210,14 +199,6 @@ print(f"Recommended channel: {recommendation['channel_recommendation']['channel'
 - [User Guide](docs/user_guide.md)
 - [MLOps Guide](docs/mlops_guide.md)
 
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
@@ -228,10 +209,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Demonstrates production-ready ML system design
 - Incorporates industry best practices for debt collection analytics
 
-## 📞 Support
-
-For questions or support, please open an issue in the repository or contact the development team.
-
----
 
 **Note**: This system uses synthetic data for demonstration purposes. In production, ensure compliance with data privacy regulations and ethical AI practices.
