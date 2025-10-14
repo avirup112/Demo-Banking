@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedata
+from datetime import datetime, timedelta
 import random
 
 class DebtCollectionDataGenerator:

@@ -1,0 +1,96 @@
+name: ML Pipeline CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-and-train:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v3
+      with:
+        python-version: 3.9
+    
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Install DVC
+      run: |
+        pip install dvc
+    
+    - name: Run data validation tests
+      run: |
+        python -m pytest tests/test_data_validation.py -v
+    
+    - name: Run model tests
+      run: |
+        python -m pytest tests/test_models.py -v
+    
+    - name: Run DVC pipeline
+      env:
+        DAGSHUB_OWNER: ${{ secrets.DAGSHUB_OWNER }}
+        DAGSHUB_REPO: debt-collection-ml
+      run: |
+        dvc repro
+    
+    - name: Check model performance
+      run: |
+        python scripts/validate_model_performance.py
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: model-artifacts
+        path: |
+          models/trained/
+          reports/
+          metrics/
+    
+    - name: Comment PR with results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const metricsPath = 'metrics/train_metrics.json';
+          
+          if (fs.existsSync(metricsPath)) {
+            const metrics = JSON.parse(fs.readFileSync(metricsPath, 'utf8'));
+            const bestModel = metrics.best_model;
+            
+            const comment = `## 🤖 ML Pipeline Results
+            
+            **Best Model**: ${bestModel.name}
+            **F1-Score**: ${bestModel.f1_weighted.toFixed(4)}
+            
+            ### Model Comparison:
+            ${Object.entries(metrics).filter(([k,v]) => k !== 'best_model').map(([name, m]) => 
+              `- **${name}**: Accuracy: ${m.accuracy.toFixed(4)}, F1: ${m.f1_weighted.toFixed(4)}`
+            ).join('\n')}
+            
+            Pipeline completed successfully! ✅`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+          }

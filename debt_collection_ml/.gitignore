@@ -88,3 +88,18 @@ target/
 
 # Mypy cache
 .mypy_cache/
+
+
+# DagsHub and DVC
+.dagshub/
+*.dvc
+/data/raw/*.csv
+/data/processed/*.npy
+/models/trained/*.joblib
+/experiments/
+.dvcignore
+
+# Logs and temporary files
+logs/*.log
+temp/
+*.tmp

@@ -1,3 +1,42 @@
+# Enhanced configuration for improved ML pipeline
+data:
+  n_samples: 15000
+  random_state: 42
+
+preprocessing:
+  imputation_strategy: knn
+  scaling_method: standard
+  encoding_method: onehot
+  handle_outliers: true
+  outlier_method: iqr
+
+feature_engineering:
+  include_time_series: true
+  include_financial_ratios: true
+  include_behavioral_features: true
+  include_polynomial: false
+  polynomial_degree: 2
+  include_pca: false
+  feature_selection: true
+  selection_k: 50
+  selection_method: f_classif
+
+training:
+  optimize_hyperparameters: true
+  n_trials: 100
+  cv_folds: 5
+  test_size: 0.2
+  random_state: 42
+  use_time_series_cv: false
+  target_metric: f1_weighted
+  class_balance_method: smote
+
+mlflow:
+  experiment_name: debt_collection_enhanced
+  track_experiments: true
+  register_best_model: true
+
+# Legacy configuration for baseline comparison
 generate_data:
   n_samples: 10000
   random_state: 42
@@ -8,17 +47,3 @@ preprocess:
   encoding_method: onehot
   handle_outliers: true
   outlier_method: iqr
-
-feature_engineering:
-  include_polynomial: true
-  polynomial_degree: 2
-  include_pca: false
-  feature_selection: true
-  selection_k: 50
-
-training:
-  optimize_hyperparameters: true
-  n_trials: 50
-  cv_folds: 5
-  test_size: 0.2
-  random_state: 42

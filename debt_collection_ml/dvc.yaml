@@ -1,53 +1,45 @@
+# DVC Pipeline for Debt Collection ML
+# Repository: avirup112/Demo-Banking
+
 stages:
-  generate_data:
-    cmd: python scripts/generate_data.py
-    outs:
-    - data/raw/debt_collection_data.csv
-    params:
-    - params.yaml:generate_data
-
-  preprocess_data:
-    cmd: python scripts/preprocess_data.py
+  data_generation:
+    cmd: python src/data/data_generator.py --output data/raw/synthetic_debt_data.csv --size 10000
     deps:
-    - data/raw/debt_collection_data.csv
+    - src/data/data_generator.py
+    outs:
+    - data/raw/synthetic_debt_data.csv
+    
+  data_preprocessing:
+    cmd: python src/data/data_preprocessor.py --input data/raw/synthetic_debt_data.csv --output data/processed/
+    deps:
     - src/data/data_preprocessor.py
+    - data/raw/synthetic_debt_data.csv
     outs:
-    - data/processed/X_processed.npy
-    - data/processed/y_encoded.npy
-    params:
-    - params.yaml:preprocess
-
+    - data/processed/X_train.npy
+    - data/processed/X_test.npy
+    - data/processed/y_train.npy
+    - data/processed/y_test.npy
+    
   feature_engineering:
-    cmd: python scripts/feature_engineering.py
+    cmd: python src/features/feature_engineering.py --input data/processed/ --output data/features/
     deps:
-    - data/processed/X_processed.npy
-    - data/processed/y_encoded.npy
+    - src/features/feature_engineering.py
+    - data/processed/X_train.npy
+    - data/processed/X_test.npy
     outs:
-    - data/processed/X_engineered.npy
-    params:
-    - params.yaml:feature_engineering
-
-  train_models:
-    cmd: python scripts/train_model_pipeline.py --optimize
+    - data/features/X_train_features.npy
+    - data/features/X_test_features.npy
+    
+  model_training:
+    cmd: python run_complete_pipeline.py --dagshub-owner avirup112 --dagshub-repo Demo-Banking
     deps:
-    - data/processed/X_engineered.npy
-    - data/processed/y_encoded.npy
-    - src/models/ml_model.py
+    - run_complete_pipeline.py
+    - data/features/X_train_features.npy
+    - data/features/X_test_features.npy
+    - data/processed/y_train.npy
+    - data/processed/y_test.npy
     outs:
-    - models/trained/
+    - models/trained/best_model.joblib
+    - reports/results_summary.json
     metrics:
-    - reports/model_metrics.json
-    plots:
-    - reports/model_comparison.json
-    params:
-    - params.yaml:training
-
-  evaluate_models:
-    cmd: python scripts/evaluate_models.py
-    deps:
-    - models/trained/
-    - data/processed/X_engineered.npy
-    metrics:
-    - reports/evaluation_metrics.json
-    plots:
-    - reports/evaluation_plots/
+    - reports/metrics.json

@@ -1,9 +1,5 @@
 import os
 import dagshub
-import mlflow
-import mlflow.sklearn
-import mlflow.xgboost
-import mlflow.lightgbm
 from typing import Dict, Any, Optional
 import logging
 import json
@@ -11,51 +7,50 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 from datetime import datetime
+import yaml
 
 class DagsHubTracker:
-    """DagsHub integration for experiment tracking and model registry"""
+    """Pure DagsHub integration for experiment tracking and data versioning"""
     
-    def __init__(self, repo_owner: str, repo_name: str, mlflow_tracking_uri: Optional[str] = None):
+    def __init__(self, repo_owner: str, repo_name: str):
         """
         Initialize DagsHub tracker
         
         Args:
             repo_owner: Your DagsHub username
             repo_name: Repository name on DagsHub
-            mlflow_tracking_uri: Optional custom MLflow URI
         """
         self.repo_owner = repo_owner
         self.repo_name = repo_name
+        self.repo_url = f"https://dagshub.com/{repo_owner}/{repo_name}"
         
-        # Initialize DagsHub
-        dagshub.init(repo_owner=repo_owner, repo_name=repo_name, mlflow=True)
-        
-        # Set MLflow tracking URI
-        if mlflow_tracking_uri:
-            mlflow.set_tracking_uri(mlflow_tracking_uri)
-        else:
-            # Use DagsHub's MLflow tracking URI
-            mlflow.set_tracking_uri(f"https://dagshub.com/{repo_owner}/{repo_name}.mlflow")
-        
-        # Set experiment
-        experiment_name = f"{repo_name}_debt_collection"
-        try:
-            mlflow.create_experiment(experiment_name)
-        except mlflow.exceptions.MlflowException:
-            pass  # Experiment already exists
-        
-        mlflow.set_experiment(experiment_name)
+        # Initialize DagsHub without MLflow
+        dagshub.init(repo_owner=repo_owner, repo_name=repo_name, mlflow=False)
         
         # Setup logging
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
         
-        self.logger.info(f"DagsHub tracker initialized for {repo_owner}/{repo_name}")
-    
-    def start_run(self, run_name: str = None, tags: Dict[str, str] = None) -> mlflow.ActiveRun:
-        """Start a new MLflow run"""
+        # Create experiments directory
+        self.experiments_dir = Path("experiments")
+        self.experiments_dir.mkdir(exist_ok=True)
         
-        run_tags = {
+        # Current experiment tracking
+        self.current_experiment = None
+        self.experiment_data = {}
+        
+        self.logger.info(f"DagsHub tracker initialized for {repo_owner}/{repo_name}")
+        self.logger.info(f"Repository URL: {self.repo_url}")
+    
+    def start_experiment(self, experiment_name: str = None, tags: Dict[str, str] = None):
+        """Start a new experiment"""
+        
+        if experiment_name is None:
+            experiment_name = f"experiment_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        self.current_experiment = experiment_name
+        
+        experiment_tags = {
             "repo_owner": self.repo_owner,
             "repo_name": self.repo_name,
             "framework": "debt_collection_ml",
@@ -63,36 +58,69 @@ class DagsHubTracker:
         }
         
         if tags:
-            run_tags.update(tags)
+            experiment_tags.update(tags)
         
-        return mlflow.start_run(run_name=run_name, tags=run_tags)
+        self.experiment_data = {
+            "experiment_name": experiment_name,
+            "tags": experiment_tags,
+            "params": {},
+            "metrics": {},
+            "artifacts": [],
+            "start_time": datetime.now().isoformat()
+        }
+        
+        self.logger.info(f"Started experiment: {experiment_name}")
+        return self
     
     def log_params(self, params: Dict[str, Any]):
-        """Log parameters to MLflow"""
-        for key, value in params.items():
-            mlflow.log_param(key, value)
+        """Log parameters to experiment"""
+        if self.current_experiment:
+            self.experiment_data["params"].update(params)
+            self.logger.info(f"Logged parameters: {list(params.keys())}")
     
     def log_metrics(self, metrics: Dict[str, float], step: int = None):
-        """Log metrics to MLflow"""
-        for key, value in metrics.items():
-            mlflow.log_metric(key, value, step=step)
+        """Log metrics to experiment"""
+        if self.current_experiment:
+            if step is not None:
+                # Handle step-based metrics
+                for key, value in metrics.items():
+                    step_key = f"{key}_step_{step}"
+                    self.experiment_data["metrics"][step_key] = value
+            else:
+                self.experiment_data["metrics"].update(metrics)
+            self.logger.info(f"Logged metrics: {list(metrics.keys())}")
     
     def log_model(self, model, model_name: str, model_type: str = "sklearn"):
-        """Log model to MLflow"""
+        """Save model as artifact"""
+        import joblib
         
-        if model_type == "xgboost":
-            mlflow.xgboost.log_model(model, model_name)
-        elif model_type == "lightgbm":
-            mlflow.lightgbm.log_model(model, model_name)
-        else:
-            mlflow.sklearn.log_model(model, model_name)
+        # Create models directory
+        models_dir = Path("models/experiments")
+        models_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Save model
+        model_path = models_dir / f"{model_name}_{self.current_experiment}.joblib"
+        joblib.dump(model, model_path)
+        
+        # Log as artifact
+        self.experiment_data["artifacts"].append({
+            "name": model_name,
+            "path": str(model_path),
+            "type": "model",
+            "model_type": model_type
+        })
+        
+        self.logger.info(f"Saved model: {model_name} to {model_path}")
     
-    def log_artifacts(self, artifact_path: str, local_path: str = None):
-        """Log artifacts to MLflow"""
-        if local_path:
-            mlflow.log_artifacts(local_path, artifact_path)
-        else:
-            mlflow.log_artifact(artifact_path)
+    def log_artifacts(self, artifact_path: str, artifact_name: str = None):
+        """Log artifacts to experiment"""
+        if self.current_experiment:
+            self.experiment_data["artifacts"].append({
+                "name": artifact_name or Path(artifact_path).name,
+                "path": artifact_path,
+                "type": "artifact"
+            })
+            self.logger.info(f"Logged artifact: {artifact_path}")
     
     def log_dataset_info(self, df: pd.DataFrame, dataset_name: str = "training_data"):
         """Log dataset information"""
@@ -256,90 +284,178 @@ class DagsHubTracker:
             yaml.dump(config, f, default_flow_style=False)
         
         self.logger.info(f"DagsHub configuration saved to {output_path}")
+    
+    def finish_experiment(self):
+        """Finish and save current experiment"""
+        if not self.current_experiment:
+            self.logger.warning("No active experiment to finish")
+            return
+        
+        # Add end time
+        self.experiment_data["end_time"] = datetime.now().isoformat()
+        
+        # Save experiment data
+        experiment_file = self.experiments_dir / f"{self.current_experiment}.json"
+        with open(experiment_file, 'w') as f:
+            json.dump(self.experiment_data, f, indent=2)
+        
+        self.logger.info(f"Experiment saved: {experiment_file}")
+        
+        # Reset current experiment
+        self.current_experiment = None
+        self.experiment_data = {}
+    
+    def list_experiments(self) -> pd.DataFrame:
+        """List all experiments"""
+        experiments = []
+        
+        for exp_file in self.experiments_dir.glob("*.json"):
+            try:
+                with open(exp_file, 'r') as f:
+                    exp_data = json.load(f)
+                
+                experiments.append({
+                    "name": exp_data["experiment_name"],
+                    "start_time": exp_data["start_time"],
+                    "end_time": exp_data.get("end_time", "Running"),
+                    "params_count": len(exp_data.get("params", {})),
+                    "metrics_count": len(exp_data.get("metrics", {})),
+                    "artifacts_count": len(exp_data.get("artifacts", []))
+                })
+            except Exception as e:
+                self.logger.error(f"Error reading experiment {exp_file}: {e}")
+        
+        return pd.DataFrame(experiments)
+    
+    def get_experiment(self, experiment_name: str) -> Dict[str, Any]:
+        """Get experiment data"""
+        exp_file = self.experiments_dir / f"{experiment_name}.json"
+        
+        if not exp_file.exists():
+            self.logger.error(f"Experiment not found: {experiment_name}")
+            return {}
+        
+        try:
+            with open(exp_file, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            self.logger.error(f"Error reading experiment {experiment_name}: {e}")
+            return {}
+    
+    def __enter__(self):
+        """Context manager entry"""
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit"""
+        self.finish_experiment()
 
 class DagsHubModelRegistry:
-    """Enhanced model registry with DagsHub integration"""
+    """Simple model registry with DagsHub integration"""
     
     def __init__(self, dagshub_tracker: DagsHubTracker):
         self.tracker = dagshub_tracker
-        self.client = mlflow.tracking.MlflowClient()
+        self.models_dir = Path("models/registry")
+        self.models_dir.mkdir(parents=True, exist_ok=True)
         
         # Setup logging
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
     
+    def register_model(self, model, model_name: str, version: str, 
+                      metrics: Dict[str, float], params: Dict[str, Any],
+                      description: str = ""):
+        """Register a model in the registry"""
+        
+        import joblib
+        
+        # Create model version directory
+        model_version_dir = self.models_dir / model_name / version
+        model_version_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Save model
+        model_path = model_version_dir / "model.joblib"
+        joblib.dump(model, model_path)
+        
+        # Save metadata
+        metadata = {
+            "name": model_name,
+            "version": version,
+            "description": description,
+            "metrics": metrics,
+            "params": params,
+            "created_at": datetime.now().isoformat(),
+            "model_path": str(model_path),
+            "repo_owner": self.tracker.repo_owner,
+            "repo_name": self.tracker.repo_name
+        }
+        
+        metadata_path = model_version_dir / "metadata.json"
+        with open(metadata_path, 'w') as f:
+            json.dump(metadata, f, indent=2)
+        
+        self.logger.info(f"Model registered: {model_name} v{version}")
+        return metadata
+    
     def list_models(self) -> pd.DataFrame:
         """List all registered models"""
         
-        try:
-            registered_models = self.client.search_registered_models()
-            
-            model_data = []
-            for model in registered_models:
-                latest_version = self.client.get_latest_versions(
-                    model.name, stages=["None", "Staging", "Production"]
-                )[0]
-                
-                model_data.append({
-                    "name": model.name,
-                    "version": latest_version.version,
-                    "stage": latest_version.current_stage,
-                    "created_at": latest_version.creation_timestamp,
-                    "description": model.description or "No description"
-                })
-            
-            return pd.DataFrame(model_data)
-            
-        except Exception as e:
-            self.logger.error(f"Failed to list models: {e}")
-            return pd.DataFrame()
+        models = []
+        
+        for model_dir in self.models_dir.iterdir():
+            if model_dir.is_dir():
+                for version_dir in model_dir.iterdir():
+                    if version_dir.is_dir():
+                        metadata_file = version_dir / "metadata.json"
+                        if metadata_file.exists():
+                            try:
+                                with open(metadata_file, 'r') as f:
+                                    metadata = json.load(f)
+                                models.append(metadata)
+                            except Exception as e:
+                                self.logger.error(f"Error reading {metadata_file}: {e}")
+        
+        return pd.DataFrame(models)
     
-    def promote_model(self, model_name: str, version: str, stage: str):
-        """Promote model to a specific stage"""
+    def get_model(self, model_name: str, version: str = "latest"):
+        """Get a model from the registry"""
+        
+        import joblib
+        
+        if version == "latest":
+            # Find latest version
+            model_dir = self.models_dir / model_name
+            if not model_dir.exists():
+                self.logger.error(f"Model not found: {model_name}")
+                return None, None
+            
+            versions = [d.name for d in model_dir.iterdir() if d.is_dir()]
+            if not versions:
+                self.logger.error(f"No versions found for model: {model_name}")
+                return None, None
+            
+            # Sort versions and get latest
+            versions.sort(reverse=True)
+            version = versions[0]
+        
+        # Load model and metadata
+        model_version_dir = self.models_dir / model_name / version
+        model_path = model_version_dir / "model.joblib"
+        metadata_path = model_version_dir / "metadata.json"
+        
+        if not model_path.exists() or not metadata_path.exists():
+            self.logger.error(f"Model files not found: {model_name} v{version}")
+            return None, None
         
         try:
-            self.client.transition_model_version_stage(
-                name=model_name,
-                version=version,
-                stage=stage
-            )
+            model = joblib.load(model_path)
+            with open(metadata_path, 'r') as f:
+                metadata = json.load(f)
             
-            self.logger.info(f"Model {model_name} v{version} promoted to {stage}")
-            
+            return model, metadata
         except Exception as e:
-            self.logger.error(f"Failed to promote model: {e}")
-    
-    def get_model_info(self, model_name: str, version: str = None) -> Dict[str, Any]:
-        """Get detailed model information"""
-        
-        try:
-            if version is None:
-                # Get latest version
-                latest_versions = self.client.get_latest_versions(model_name)
-                if not latest_versions:
-                    return {}
-                model_version = latest_versions[0]
-            else:
-                model_version = self.client.get_model_version(model_name, version)
-            
-            # Get run information
-            run = self.client.get_run(model_version.run_id)
-            
-            return {
-                "name": model_version.name,
-                "version": model_version.version,
-                "stage": model_version.current_stage,
-                "run_id": model_version.run_id,
-                "metrics": run.data.metrics,
-                "params": run.data.params,
-                "tags": run.data.tags,
-                "created_at": model_version.creation_timestamp,
-                "description": model_version.description
-            }
-            
-        except Exception as e:
-            self.logger.error(f"Failed to get model info: {e}")
-            return {}
+            self.logger.error(f"Error loading model: {e}")
+            return None, None
 
 def setup_dagshub_integration(repo_owner: str, repo_name: str) -> DagsHubTracker:
     """Setup DagsHub integration for the project"""
@@ -350,28 +466,29 @@ def setup_dagshub_integration(repo_owner: str, repo_name: str) -> DagsHubTracker
     # Create configuration file
     tracker.create_dagshub_yaml()
     
-    # Create .dvc directory structure
-    dvc_dirs = [".dvc", "data/.dvc", "models/.dvc"]
-    for dvc_dir in dvc_dirs:
-        Path(dvc_dir).mkdir(parents=True, exist_ok=True)
+    # Create directory structure
+    dirs = ["experiments", "models/registry", "models/experiments", "data/raw", "data/processed"]
+    for dir_path in dirs:
+        Path(dir_path).mkdir(parents=True, exist_ok=True)
     
     print(f"""
 DagsHub Integration Setup Complete!
 =====================================
 
 Repository: https://dagshub.com/{repo_owner}/{repo_name}
-MLflow UI: https://dagshub.com/{repo_owner}/{repo_name}.mlflow
+Data: https://dagshub.com/{repo_owner}/{repo_name}/data
+Experiments: https://dagshub.com/{repo_owner}/{repo_name}/experiments
 
 Next Steps:
 1. Create a repository on DagsHub: https://dagshub.com/repo/create
 2. Push your code to the repository
-3. Run experiments and view them in the MLflow UI
-4. Use DVC for data versioning (optional)
+3. Run experiments and track them with DagsHub
+4. Use DVC for data versioning
 
 Example Usage:
 --------------
 tracker = DagsHubTracker("{repo_owner}", "{repo_name}")
-with tracker.start_run("experiment_1"):
+with tracker.start_experiment("experiment_1"):
     tracker.log_params({{"learning_rate": 0.1}})
     tracker.log_metrics({{"accuracy": 0.95}})
     tracker.log_model(model, "debt_collection_model")
@@ -389,7 +506,7 @@ if __name__ == "__main__":
     tracker = setup_dagshub_integration(REPO_OWNER, REPO_NAME)
     
     # Example experiment
-    with tracker.start_run("test_experiment"):
+    with tracker.start_experiment("test_experiment"):
         # Log parameters
         tracker.log_params({
             "model_type": "xgboost",
