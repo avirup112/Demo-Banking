@@ -32,24 +32,49 @@ debt-collection-ml-system/
 
 ## 🚀 Quick Start
 
-### Option 1: Docker Deployment (Recommended)
+### Option 1: DagsHub + DVC Integration (Recommended)
 
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd debt-collection-ml-system
+# 1. Setup DagsHub integration
+python scripts/setup_dagshub.py --repo-owner YOUR_USERNAME --create-config
 
-# Build and run with Docker Compose
+# 2. Create repository on DagsHub and push code
+git init
+git add .
+git commit -m "Initial commit"
+git remote add origin https://dagshub.com/YOUR_USERNAME/debt-collection-ml.git
+git push -u origin main
+
+# 3. Run DVC pipeline
+python scripts/dvc_pipeline.py init
+python scripts/dvc_pipeline.py run
+
+# 4. View results:
+# - Experiments: https://dagshub.com/YOUR_USERNAME/debt-collection-ml.mlflow
+# - Data: https://dagshub.com/YOUR_USERNAME/debt-collection-ml
+# - Pipeline: dvc dag
+# - Metrics: dvc metrics show
+```
+
+### Option 2: Docker Deployment
+
+```bash
+# With DagsHub + DVC (set environment variables)
+export DAGSHUB_OWNER=your_username
+export DAGSHUB_REPO=debt-collection-ml
+docker-compose up --build
+
+# Without DagsHub (local MLflow + DVC)
 docker-compose up --build
 
 # Access services:
-# - MLflow UI: http://localhost:5000
+# - Local MLflow UI: http://localhost:5000
 # - API: http://localhost:8000
 # - Dashboard: http://localhost:8501
 # - Jupyter: http://localhost:8888
 ```
 
-### Option 2: Local Development
+### Option 3: Local Development
 
 ```bash
 # Create virtual environment
@@ -59,8 +84,12 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Run training pipeline
-python scripts/train_model_pipeline.py --optimize
+# Setup DVC and run pipeline
+dvc init
+dvc repro
+
+# OR run individual steps:
+python scripts/train_model_pipeline.py --optimize --dagshub-owner YOUR_USERNAME
 
 # Start dashboard
 streamlit run src/visualization/dashboard.py
@@ -97,10 +126,12 @@ uvicorn src.api.main:app --reload
 - **Business Explanations**: Domain-specific interpretation of model decisions
 
 ### 5. Production Readiness & MLOps (10%)
-- **Model Registry**: Local SQLite-based model versioning
+- **Model Registry**: DagsHub + Local SQLite-based model versioning
+- **Data Versioning**: DVC for data and model artifact versioning
+- **Pipeline Management**: DVC pipelines for reproducible workflows
 - **Monitoring**: Data drift detection, performance monitoring
 - **CI/CD Pipeline**: Automated testing and validation
-- **Experiment Tracking**: MLflow integration
+- **Experiment Tracking**: DagsHub + MLflow integration
 - **Health Checks**: Model and data validation
 
 ### 6. Innovation & Presentation (10%)
@@ -110,6 +141,31 @@ uvicorn src.api.main:app --reload
 - **Comprehensive Documentation**: Detailed guides and examples
 
 ## 🔧 Usage Examples
+
+### DVC Pipeline Management
+
+```bash
+# Initialize DVC pipeline
+python scripts/dvc_pipeline.py init
+
+# Run complete pipeline
+python scripts/dvc_pipeline.py run
+
+# Run specific stages
+python scripts/dvc_pipeline.py run --stages data_generation model_training
+
+# Show pipeline status
+python scripts/dvc_pipeline.py status
+
+# View metrics
+python scripts/dvc_pipeline.py metrics
+
+# Create experiment
+python scripts/dvc_pipeline.py experiment run --name "experiment_1" --param training.n_trials=100
+
+# Push data to DagsHub
+python scripts/dvc_pipeline.py push
+```
 
 ### Training Models
 
@@ -177,20 +233,46 @@ print(f"Recommended channel: {recommendation['channel_recommendation']['channel'
 
 ## 🛠️ MLOps Features
 
+### Data Version Control (DVC)
+- **Data Versioning**: Track changes in datasets and model artifacts
+- **Pipeline Management**: Reproducible ML pipelines with dependency tracking
+- **Experiment Tracking**: Parameter and metric comparison across runs
+- **Remote Storage**: Support for S3, GCS, Azure, SSH, and local storage
+
 ### Model Registry
-- Version control for models
-- Metadata tracking
-- Promotion workflows (dev → staging → production)
+- Version control for models with DagsHub integration
+- Metadata tracking and model promotion workflows
+- Automated model comparison and selection
 
 ### Monitoring
 - Data drift detection using Evidently
 - Performance degradation alerts
-- Real-time metrics tracking
+- Real-time metrics tracking with MLflow
 
 ### CI/CD Pipeline
-- Automated data validation
-- Model testing and validation
-- Deployment automation
+- Automated data validation and quality checks
+- Model testing and validation pipelines
+- DVC-based reproducible deployments
+
+### Quick DVC Commands
+```bash
+# Run full pipeline
+dvc repro
+
+# Check pipeline status
+dvc status
+
+# View pipeline DAG
+dvc dag
+
+# Compare experiments
+dvc params diff
+dvc metrics diff
+
+# Push/pull data
+dvc push
+dvc pull
+```
 
 ## 📚 Documentation
 
@@ -198,6 +280,24 @@ print(f"Recommended channel: {recommendation['channel_recommendation']['channel'
 - [API Documentation](docs/api_documentation.md)
 - [User Guide](docs/user_guide.md)
 - [MLOps Guide](docs/mlops_guide.md)
+- [DVC Pipeline Guide](docs/dvc_guide.md)
+
+## 🔄 DVC Pipeline Structure
+
+```mermaid
+graph TD
+    A[generate_data] --> B[preprocess_data]
+    B --> C[feature_engineering]
+    C --> D[train_models]
+    D --> E[evaluate_models]
+    
+    A --> F[data/raw/debt_collection_data.csv]
+    B --> G[data/processed/X_processed.npy]
+    B --> H[data/processed/y_encoded.npy]
+    C --> I[data/processed/X_engineered.npy]
+    D --> J[models/trained/]
+    E --> K[reports/evaluation_metrics.json]
+```
 
 ## 📄 License
 
@@ -211,3 +311,73 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 
 **Note**: This system uses synthetic data for demonstration purposes. In production, ensure compliance with data privacy regulations and ethical AI practices.
+## 🔄 DV
+C Pipeline Stages
+
+The system uses DVC for complete pipeline orchestration:
+
+### 1. Data Generation
+```bash
+# Generates synthetic debt collection dataset
+dvc repro data_generation
+```
+
+### 2. Data Preprocessing  
+```bash
+# Cleans and preprocesses raw data
+dvc repro data_preprocessing
+```
+
+### 3. Feature Engineering
+```bash
+# Creates advanced features for ML models
+dvc repro feature_engineering
+```
+
+### 4. Model Training
+```bash
+# Trains multiple ML models with hyperparameter optimization
+dvc repro model_training
+```
+
+### 5. Model Evaluation
+```bash
+# Evaluates and compares all trained models
+dvc repro model_evaluation
+```
+
+### 6. Web Scraping (Optional)
+```bash
+# Enriches data with external sources
+dvc repro web_scraping
+```
+
+## 📊 DVC Metrics Tracking
+
+All stages automatically track metrics:
+
+- **Data Quality**: Missing data, outliers, distributions
+- **Feature Engineering**: Feature counts, selection results
+- **Model Performance**: Accuracy, F1, ROC-AUC, Business metrics
+- **Evaluation**: Model comparisons, best model selection
+
+View metrics with:
+```bash
+dvc metrics show
+dvc plots show
+```
+
+## 🧪 Experiment Management
+
+Create and compare experiments:
+
+```bash
+# Run experiment with different parameters
+dvc exp run --set-param training.n_trials=100 --name "high_trials"
+
+# Compare experiments
+dvc exp show
+
+# Apply best experiment
+dvc exp apply [experiment-id]
+```

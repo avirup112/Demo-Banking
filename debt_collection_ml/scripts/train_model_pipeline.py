@@ -25,6 +25,7 @@ from data.data_preprocessor import AdvancedDataPreprocessor
 from features.feature_engineering import AdvancedFeatureEngineer
 from models.ml_model import DebtCollectionMLModel, ModelComparison
 from utils.mlops import MLOpsOrchestrator, ContinuousIntegration
+from utils.dagshub_integration import DagsHubTracker
 
 # Setup logging
 logging.basicConfig(
@@ -133,7 +134,8 @@ def engineer_features(X_processed: np.ndarray, y_encoded: np.ndarray,
 
 def train_multiple_models(X_train: np.ndarray, y_train: np.ndarray,
                          X_val: np.ndarray, y_val: np.ndarray,
-                         optimize_hyperparameters: bool = True):
+                         optimize_hyperparameters: bool = True,
+                         dagshub_tracker: DagsHubTracker = None):
     """Train multiple models for comparison"""
     
     logger.info("Training multiple models...")
@@ -152,30 +154,27 @@ def train_multiple_models(X_train: np.ndarray, y_train: np.ndarray,
     for config in model_configs:
         logger.info(f"Training {config['name']} model...")
         
-        # Initialize model
+        # Initialize model with DagsHub tracker
         model = DebtCollectionMLModel(
             model_type=config['type'],
-            random_state=42
+            random_state=42,
+            dagshub_tracker=dagshub_tracker
         )
         
         # Train model
-        with mlflow.start_run(run_name=f"{config['name']}_training"):
-            training_result = model.train(
-                X_train, y_train, X_val, y_val,
-                optimize=optimize_hyperparameters,
-                n_trials=30 if optimize_hyperparameters else 0
-            )
-            
-            # Log additional metrics
-            mlflow.log_param("model_name", config['name'])
-            mlflow.log_param("model_type", config['type'])
-            
-            # Save model
-            model_path = f"models/trained/{config['name'].lower().replace(' ', '_')}_model.joblib"
-            model.save_model(model_path)
-            
-            # Log model artifact
-            mlflow.log_artifact(model_path)
+        training_result = model.train(
+            X_train, y_train, X_val, y_val,
+            optimize=optimize_hyperparameters,
+            n_trials=30 if optimize_hyperparameters else 0
+        )
+        
+        # Save model
+        model_path = f"models/trained/{config['name'].lower().replace(' ', '_')}_model.joblib"
+        model.save_model(model_path)
+        
+        # Log model artifact if using DagsHub
+        if dagshub_tracker:
+            dagshub_tracker.log_artifacts(model_path)
         
         models[config['name']] = model
         training_results[config['name']] = training_result
@@ -356,10 +355,22 @@ def main():
     parser.add_argument('--samples', type=int, default=10000, help='Number of samples to generate')
     parser.add_argument('--optimize', action='store_true', help='Enable hyperparameter optimization')
     parser.add_argument('--regenerate', action='store_true', help='Force regenerate dataset')
+    parser.add_argument('--dagshub-owner', type=str, help='DagsHub repository owner')
+    parser.add_argument('--dagshub-repo', type=str, default='debt-collection-ml', help='DagsHub repository name')
     
     args = parser.parse_args()
     
     logger.info("Starting comprehensive ML training pipeline...")
+    
+    # Initialize DagsHub tracker if credentials provided
+    dagshub_tracker = None
+    if args.dagshub_owner:
+        try:
+            dagshub_tracker = DagsHubTracker(args.dagshub_owner, args.dagshub_repo)
+            logger.info(f"DagsHub tracking enabled: {args.dagshub_owner}/{args.dagshub_repo}")
+        except Exception as e:
+            logger.warning(f"Failed to initialize DagsHub tracker: {e}")
+            logger.info("Falling back to local MLflow tracking")
     
     try:
         # Setup
@@ -390,11 +401,17 @@ def main():
         # Model training
         models, training_results = train_multiple_models(
             X_train, y_train, X_val, y_val, 
-            optimize_hyperparameters=args.optimize
+            optimize_hyperparameters=args.optimize,
+            dagshub_tracker=dagshub_tracker
         )
         
         # Model evaluation
         comparison_df, best_model_name, comparison = evaluate_models(models, X_test, y_test)
+        
+        # Log model comparison to DagsHub if available
+        if dagshub_tracker:
+            with dagshub_tracker.start_run("model_comparison"):
+                dagshub_tracker.log_model_comparison(comparison_df)
         
         # MLOps setup
         mlops = setup_mlops_monitoring(df, best_model_name, models)
@@ -417,6 +434,10 @@ def main():
         print(f"Features: {X_engineered.shape[1]} (after engineering)")
         print(f"Best Model: {best_model_name}")
         print(f"Best Business F1: {comparison_df.loc[comparison_df['Model'] == best_model_name, 'Business F1'].iloc[0]:.4f}")
+        
+        if dagshub_tracker:
+            print(f"View experiments: https://dagshub.com/{args.dagshub_owner}/{args.dagshub_repo}.mlflow")
+        
         print("="*60)
         
     except Exception as e:

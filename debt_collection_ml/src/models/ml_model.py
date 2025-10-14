@@ -29,6 +29,13 @@ import logging
 import warnings
 warnings.filterwarnings('ignore')
 
+# DagsHub integration
+try:
+    from ..utils.dagshub_integration import DagsHubTracker
+    DAGSHUB_AVAILABLE = True
+except ImportError:
+    DAGSHUB_AVAILABLE = False
+
 class ModelEvaluator:
     """Comprehensive model evaluation with business metrics"""
     
@@ -210,7 +217,8 @@ class ModelEvaluator:
 class DebtCollectionMLModel:
     """Advanced ML Model for debt collection with MLOps integration"""
     
-    def __init__(self, model_type: str = 'ensemble', random_state: int = 42):
+    def __init__(self, model_type: str = 'ensemble', random_state: int = 42, 
+                 dagshub_tracker: Optional['DagsHubTracker'] = None):
         self.model_type = model_type
         self.random_state = random_state
         self.model = None
@@ -218,9 +226,11 @@ class DebtCollectionMLModel:
         self.feature_importance = None
         self.cv_scores = None
         self.evaluator = ModelEvaluator()
+        self.dagshub_tracker = dagshub_tracker
         
-        # MLflow setup
-        mlflow.set_experiment("debt_collection_ml")
+        # MLflow setup (DagsHub will override if provided)
+        if not dagshub_tracker:
+            mlflow.set_experiment("debt_collection_ml")
         
         # Setup logging
         logging.basicConfig(level=logging.INFO)
@@ -401,21 +411,42 @@ class DebtCollectionMLModel:
     def train(self, X_train: np.ndarray, y_train: np.ndarray, 
               X_val: np.ndarray = None, y_val: np.ndarray = None,
               optimize: bool = True, n_trials: int = 50) -> Dict[str, Any]:
-        """Train the model with MLflow tracking"""
+        """Train the model with experiment tracking"""
         
-        with mlflow.start_run():
+        # Use DagsHub tracker if available, otherwise use MLflow directly
+        if self.dagshub_tracker:
+            run_context = self.dagshub_tracker.start_run(f"{self.model_type}_training")
+        else:
+            run_context = mlflow.start_run()
+            
+        with run_context:
             # Log parameters
-            mlflow.log_param("model_type", self.model_type)
-            mlflow.log_param("random_state", self.random_state)
-            mlflow.log_param("optimize_hyperparameters", optimize)
+            params = {
+                "model_type": self.model_type,
+                "random_state": self.random_state,
+                "optimize_hyperparameters": optimize
+            }
+            
+            if self.dagshub_tracker:
+                self.dagshub_tracker.log_params(params)
+            else:
+                for key, value in params.items():
+                    mlflow.log_param(key, value)
             
             if optimize:
                 self.logger.info("Starting hyperparameter optimization...")
                 optimization_results = self.optimize_hyperparameters(X_train, y_train, n_trials=n_trials)
                 
                 # Log optimization results
-                mlflow.log_param("optimization_trials", n_trials)
-                mlflow.log_metric("best_cv_score", optimization_results['best_score'])
+                opt_params = {"optimization_trials": n_trials}
+                opt_metrics = {"best_cv_score": optimization_results['best_score']}
+                
+                if self.dagshub_tracker:
+                    self.dagshub_tracker.log_params(opt_params)
+                    self.dagshub_tracker.log_metrics(opt_metrics)
+                else:
+                    mlflow.log_param("optimization_trials", n_trials)
+                    mlflow.log_metric("best_cv_score", optimization_results['best_score'])
                 
                 # Extract best parameters
                 best_params = {k: v for k, v in self.best_params.items() if k != 'sampling_strategy'}
@@ -460,32 +491,58 @@ class DebtCollectionMLModel:
             self.cv_scores = cv_scores
             
             # Log cross-validation results
-            mlflow.log_metric("cv_mean_f1", cv_scores.mean())
-            mlflow.log_metric("cv_std_f1", cv_scores.std())
+            cv_metrics = {
+                "cv_mean_f1": cv_scores.mean(),
+                "cv_std_f1": cv_scores.std()
+            }
+            
+            if self.dagshub_tracker:
+                self.dagshub_tracker.log_metrics(cv_metrics)
+            else:
+                for key, value in cv_metrics.items():
+                    mlflow.log_metric(key, value)
             
             # Validation evaluation if provided
             if X_val is not None and y_val is not None:
                 val_results = self.evaluator.evaluate_model(self.model, X_val, y_val, "Validation")
                 
-                # Log validation metrics
-                for metric, value in val_results['business_metrics'].items():
-                    mlflow.log_metric(f"val_{metric}", value)
+                # Prepare validation metrics
+                val_metrics = {
+                    "val_accuracy": val_results['accuracy'],
+                    "val_f1": val_results['f1_score'],
+                    "val_roc_auc": val_results['roc_auc']
+                }
                 
-                mlflow.log_metric("val_accuracy", val_results['accuracy'])
-                mlflow.log_metric("val_f1", val_results['f1_score'])
-                mlflow.log_metric("val_roc_auc", val_results['roc_auc'])
+                # Add business metrics
+                for metric, value in val_results['business_metrics'].items():
+                    val_metrics[f"val_{metric}"] = value
+                
+                # Log validation metrics
+                if self.dagshub_tracker:
+                    self.dagshub_tracker.log_metrics(val_metrics)
+                else:
+                    for key, value in val_metrics.items():
+                        mlflow.log_metric(key, value)
             
             # Feature importance
             if hasattr(self.model.named_steps['classifier'], 'feature_importances_'):
                 self.feature_importance = self.model.named_steps['classifier'].feature_importances_
             
             # Log model
-            if self.model_type == 'xgboost':
-                mlflow.xgboost.log_model(self.model.named_steps['classifier'], "model")
-            elif self.model_type == 'lightgbm':
-                mlflow.lightgbm.log_model(self.model.named_steps['classifier'], "model")
+            if self.dagshub_tracker:
+                if self.model_type == 'xgboost':
+                    self.dagshub_tracker.log_model(self.model.named_steps['classifier'], "model", "xgboost")
+                elif self.model_type == 'lightgbm':
+                    self.dagshub_tracker.log_model(self.model.named_steps['classifier'], "model", "lightgbm")
+                else:
+                    self.dagshub_tracker.log_model(self.model, "model", "sklearn")
             else:
-                mlflow.sklearn.log_model(self.model, "model")
+                if self.model_type == 'xgboost':
+                    mlflow.xgboost.log_model(self.model.named_steps['classifier'], "model")
+                elif self.model_type == 'lightgbm':
+                    mlflow.lightgbm.log_model(self.model.named_steps['classifier'], "model")
+                else:
+                    mlflow.sklearn.log_model(self.model, "model")
             
             self.logger.info(f"Training completed. CV F1: {cv_scores.mean():.4f} (+/- {cv_scores.std() * 2:.4f})")
             

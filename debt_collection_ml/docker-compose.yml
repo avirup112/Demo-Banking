@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # MLflow Tracking Server
+  # MLflow Tracking Server (Local fallback)
   mlflow:
     image: python:3.9-slim
     container_name: debt_collection_mlflow
@@ -35,13 +35,19 @@ services:
     environment:
       - MLFLOW_TRACKING_URI=http://mlflow:5000
       - PYTHONPATH=/app/src
+      - DAGSHUB_OWNER=${DAGSHUB_OWNER:-}
+      - DAGSHUB_REPO=${DAGSHUB_REPO:-debt-collection-ml}
     depends_on:
       - mlflow
     networks:
       - debt_collection_network
     command: >
       bash -c "
-        python scripts/train_model_pipeline.py --optimize &&
+        if [ ! -z \"$DAGSHUB_OWNER\" ]; then
+          python scripts/train_model_pipeline.py --optimize --dagshub-owner $DAGSHUB_OWNER --dagshub-repo $DAGSHUB_REPO
+        else
+          python scripts/train_model_pipeline.py --optimize
+        fi &&
         python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000
       "
 

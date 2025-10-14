@@ -1,0 +1,24 @@
+generate_data:
+  n_samples: 10000
+  random_state: 42
+
+preprocess:
+  imputation_strategy: knn
+  scaling_method: standard
+  encoding_method: onehot
+  handle_outliers: true
+  outlier_method: iqr
+
+feature_engineering:
+  include_polynomial: true
+  polynomial_degree: 2
+  include_pca: false
+  feature_selection: true
+  selection_k: 50
+
+training:
+  optimize_hyperparameters: true
+  n_trials: 50
+  cv_folds: 5
+  test_size: 0.2
+  random_state: 42

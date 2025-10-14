@@ -1,0 +1,53 @@
+stages:
+  generate_data:
+    cmd: python scripts/generate_data.py
+    outs:
+    - data/raw/debt_collection_data.csv
+    params:
+    - params.yaml:generate_data
+
+  preprocess_data:
+    cmd: python scripts/preprocess_data.py
+    deps:
+    - data/raw/debt_collection_data.csv
+    - src/data/data_preprocessor.py
+    outs:
+    - data/processed/X_processed.npy
+    - data/processed/y_encoded.npy
+    params:
+    - params.yaml:preprocess
+
+  feature_engineering:
+    cmd: python scripts/feature_engineering.py
+    deps:
+    - data/processed/X_processed.npy
+    - data/processed/y_encoded.npy
+    outs:
+    - data/processed/X_engineered.npy
+    params:
+    - params.yaml:feature_engineering
+
+  train_models:
+    cmd: python scripts/train_model_pipeline.py --optimize
+    deps:
+    - data/processed/X_engineered.npy
+    - data/processed/y_encoded.npy
+    - src/models/ml_model.py
+    outs:
+    - models/trained/
+    metrics:
+    - reports/model_metrics.json
+    plots:
+    - reports/model_comparison.json
+    params:
+    - params.yaml:training
+
+  evaluate_models:
+    cmd: python scripts/evaluate_models.py
+    deps:
+    - models/trained/
+    - data/processed/X_engineered.npy
+    metrics:
+    - reports/evaluation_metrics.json
+    plots:
+    - reports/evaluation_plots/

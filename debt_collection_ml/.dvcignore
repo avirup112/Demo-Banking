@@ -1,0 +1,9 @@
+# DVC ignore file
+*.pyc
+__pycache__/
+.git/
+.pytest_cache/
+.coverage
+*.log
+.DS_Store
+Thumbs.db
