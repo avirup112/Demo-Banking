@@ -1,0 +1,65 @@
+
+DEBT COLLECTION ML OPTIMIZATION REPORT
+=====================================================
+
+Generated: 2025-10-14 20:36:55
+
+DATASET OVERVIEW:
+- Total samples: 1,000
+- Target distribution:
+payment_status
+partial_payment    667
+no_payment         171
+full_payment       162
+
+OPTIMIZATION SUMMARY:
+- Models optimized: 4  # Excluding 'best_overall'
+- Best overall model: random_forest
+
+OPTIMIZED MODEL PERFORMANCE:
+==================================================
+
+
+random_forest_optimized:
+  - Accuracy: 0.6550
+  - F1-Score (Weighted): 0.6615
+  - F1-Score (Macro): 0.5879
+  - Business F1: 0.6615
+  - ROC-AUC: 0.7212
+  - Optimization Score: 0.8248
+
+logistic_regression_optimized:
+  - Accuracy: 0.5600
+  - F1-Score (Weighted): 0.5746
+  - F1-Score (Macro): 0.4978
+  - Business F1: 0.5746
+  - ROC-AUC: 0.6237
+  - Optimization Score: 0.7881
+
+
+BEST MODEL: random_forest_optimized
+Best F1-Score: 0.6615
+
+PERFORMANCE IMPROVEMENT:
+- Target F1 Score: 0.65
+- Achieved F1 Score: 0.6615
+- Performance Status: TARGET EXCEEDED
+
+FILES GENERATED:
+- data/raw/debt_collection_data.csv
+- data/processed/X_processed.npy
+- data/processed/X_engineered.npy
+- data/processed/y_encoded.npy
+- models/artifacts/preprocessor.joblib
+- models/artifacts/feature_engineer.joblib
+- models/optimized/*.joblib
+- optimization_results/*
+- reports/optimized_model_comparison.csv
+
+NEXT STEPS:
+1. Deploy the best model (random_forest_optimized)
+2. Set up monitoring and drift detection
+3. Implement A/B testing framework
+4. Create web interface for predictions
+
+=====================================================

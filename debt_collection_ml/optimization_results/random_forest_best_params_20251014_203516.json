@@ -1,0 +1,15 @@
+{
+  "model_name": "random_forest",
+  "best_params": {
+    "n_estimators": 218,
+    "max_depth": 20,
+    "min_samples_split": 15,
+    "min_samples_leaf": 6,
+    "max_features": "sqrt",
+    "bootstrap": true,
+    "class_weight": null
+  },
+  "best_score": 0.8248072368665014,
+  "timestamp": "20251014_203516",
+  "n_trials": 2
+}

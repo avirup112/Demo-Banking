@@ -301,26 +301,87 @@ class AdvancedFeatureEngineer:
         
         self.logger.info(f"Feature engineer loaded from {filepath}")
 
-if __name__ == "__main__":
-    # Test the feature engineer
-    import pandas as pd
-    import numpy as np
+def main():
+    """Main function with command line argument support"""
+    import argparse
+    from pathlib import Path
     
-    # Create sample preprocessed data (simulating OneHot encoded data)
-    np.random.seed(42)
-    data = np.random.randn(100, 20)  # 100 samples, 20 features (like preprocessed data)
-    df = pd.DataFrame(data)
-    y = np.random.randint(0, 3, 100)  # Sample target
+    parser = argparse.ArgumentParser(description='Engineer features for debt collection data')
+    parser.add_argument('--input', type=str, required=True,
+                       help='Input directory with preprocessed data')
+    parser.add_argument('--output', type=str, required=True,
+                       help='Output directory for engineered features')
+    parser.add_argument('--polynomial', action='store_true',
+                       help='Include polynomial features')
+    parser.add_argument('--selection-k', type=int, default=50,
+                       help='Number of features to select')
     
-    # Test feature engineer
+    args = parser.parse_args()
+    
+    # Setup logging
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f"Loading preprocessed data from {args.input}")
+    
+    # Load preprocessed data
+    input_path = Path(args.input)
+    X_train = np.load(input_path / 'X_train.npy')
+    X_test = np.load(input_path / 'X_test.npy')
+    y_train = np.load(input_path / 'y_train.npy')
+    y_test = np.load(input_path / 'y_test.npy')
+    
+    logger.info(f"Loaded training data with shape: {X_train.shape}")
+    logger.info(f"Loaded test data with shape: {X_test.shape}")
+    
+    # Convert to DataFrame for feature engineering
+    X_train_df = pd.DataFrame(X_train)
+    X_test_df = pd.DataFrame(X_test)
+    
+    # Initialize feature engineer
     engineer = AdvancedFeatureEngineer(
-        include_polynomial=False,  # Disable for test
+        include_polynomial=args.polynomial,
         feature_selection=True,
-        selection_k=15
+        selection_k=args.selection_k
     )
     
-    X_engineered = engineer.fit_transform(df, y)
+    # Fit and transform training data
+    X_train_engineered = engineer.fit_transform(X_train_df, y_train)
     
-    print(f"Original shape: {df.shape}")
-    print(f"Engineered shape: {X_engineered.shape}")
-    print("Feature engineering test completed!")
+    # Transform test data
+    X_test_engineered = engineer.transform(X_test_df)
+    
+    # Create output directory
+    output_path = Path(args.output)
+    output_path.mkdir(parents=True, exist_ok=True)
+    
+    # Save engineered features
+    np.save(output_path / 'X_train_features.npy', X_train_engineered)
+    np.save(output_path / 'X_test_features.npy', X_test_engineered)
+    
+    # Save feature engineer
+    engineer.save_feature_engineer(output_path / 'feature_engineer.joblib')
+    
+    # Save feature info
+    import json
+    feature_info = {
+        'original_features': X_train.shape[1],
+        'engineered_features': X_train_engineered.shape[1],
+        'selected_features': len(engineer.selected_features) if engineer.selected_features else 0,
+        'feature_names': engineer.feature_names if hasattr(engineer, 'feature_names') else [],
+        'polynomial_features': args.polynomial,
+        'selection_k': args.selection_k
+    }
+    
+    with open(output_path / 'feature_engineering_info.json', 'w') as f:
+        json.dump(feature_info, f, indent=2)
+    
+    logger.info(f"✅ Feature engineering complete!")
+    logger.info(f"📁 Saved to: {output_path}")
+    logger.info(f"📊 Original features: {X_train.shape[1]}")
+    logger.info(f"📊 Engineered features: {X_train_engineered.shape[1]}")
+    logger.info(f"🎯 Selected features: {len(engineer.selected_features) if engineer.selected_features else 0}")
+
+if __name__ == "__main__":
+    main()

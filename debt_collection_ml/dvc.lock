@@ -1,0 +1,111 @@
+schema: '2.0'
+stages:
+  data_generation:
+    cmd: python src/data/data_generator.py --output 
+      data/raw/synthetic_debt_data.csv --size 10000
+    deps:
+    - path: src/data/data_generator.py
+      hash: md5
+      md5: 0631504de76b039d8a3e1188687be10e
+      size: 14346
+    outs:
+    - path: data/raw/synthetic_debt_data.csv
+      hash: md5
+      md5: 7b953ac77bb9e93cfbd3a90a35676241
+      size: 2244696
+  data_preprocessing:
+    cmd: python src/data/data_preprocessor.py --input 
+      data/raw/synthetic_debt_data.csv --output data/processed/
+    deps:
+    - path: data/raw/synthetic_debt_data.csv
+      hash: md5
+      md5: 7b953ac77bb9e93cfbd3a90a35676241
+      size: 2244696
+    - path: src/data/data_preprocessor.py
+      hash: md5
+      md5: 09f116efc8660df4c050ce2307e0ab0f
+      size: 20801
+    outs:
+    - path: data/processed/X_test.npy
+      hash: md5
+      md5: aeaab240553330d5c30620aadac36fb7
+      size: 161456128
+    - path: data/processed/X_train.npy
+      hash: md5
+      md5: 060ce2b40586ee0c05b26e058029332c
+      size: 645824128
+    - path: data/processed/y_test.npy
+      hash: md5
+      md5: aad063d06238bf9cee23229699720401
+      size: 8128
+    - path: data/processed/y_train.npy
+      hash: md5
+      md5: 4ee6cb9f35dcd06162daed7c6962428c
+      size: 32128
+  feature_engineering:
+    cmd: python src/features/feature_engineering.py --input data/processed/ 
+      --output data/features/
+    deps:
+    - path: data/processed/X_test.npy
+      hash: md5
+      md5: aeaab240553330d5c30620aadac36fb7
+      size: 161456128
+    - path: data/processed/X_train.npy
+      hash: md5
+      md5: 060ce2b40586ee0c05b26e058029332c
+      size: 645824128
+    - path: src/features/feature_engineering.py
+      hash: md5
+      md5: fa10afb12bf2f4dc1fb40e6e6caf5f54
+      size: 17152
+    outs:
+    - path: data/features/X_test_features.npy
+      hash: md5
+      md5: ce7927f188bf114e1d0f603e786d4329
+      size: 800128
+    - path: data/features/X_train_features.npy
+      hash: md5
+      md5: a3ad65c996075a6c77ec79ef5640ca31
+      size: 3200128
+  model_training:
+    cmd: python run_complete_pipeline.py --dagshub-owner avirup112 
+      --dagshub-repo Demo-Banking
+    deps:
+    - path: data/features/X_test_features.npy
+      hash: md5
+      md5: ce7927f188bf114e1d0f603e786d4329
+      size: 800128
+    - path: data/features/X_train_features.npy
+      hash: md5
+      md5: a3ad65c996075a6c77ec79ef5640ca31
+      size: 3200128
+    - path: data/processed/y_test.npy
+      hash: md5
+      md5: aad063d06238bf9cee23229699720401
+      size: 8128
+    - path: data/processed/y_train.npy
+      hash: md5
+      md5: 4ee6cb9f35dcd06162daed7c6962428c
+      size: 32128
+    - path: run_complete_pipeline.py
+      hash: md5
+      md5: 692ca9ee03fc4d9d3749e426f9c1d8ad
+      size: 20644
+    outs:
+    - path: models/trained/
+      hash: md5
+      md5: b56503f4e430d56db517895ac09da7d9.dir
+      size: 105410823
+      nfiles: 5
+    - path: reports/metrics.json
+      hash: md5
+      md5: 645329fbeaa78c898c5dfbb9b6933718
+      size: 92
+    - path: reports/pipeline_report.txt
+      hash: md5
+      md5: 7b8c6c570ad8b14977c2a923ce5fbfa5
+      size: 1751
+    - path: reports/results_summary.json
+      hash: md5
+      md5: 86e11d244582154396d7afb6e42fa23a
+      size: 1361

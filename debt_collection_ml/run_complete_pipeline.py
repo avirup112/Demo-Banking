@@ -18,8 +18,10 @@ warnings.filterwarnings('ignore')
 sys.path.append('src')
 
 # Import modules
-from data.data_generator import DebtCollectionDataGenerator
+from data.data_generator import DebtDataGenerator
 from data.data_preprocessor import AdvancedDataPreprocessor
+from utils.dagshub_integration import DagsHubTracker
+from explainability.shap_explainer import DebtCollectionExplainer
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
@@ -29,6 +31,7 @@ from sklearn.metrics import classification_report, accuracy_score, f1_score, roc
 from imblearn.over_sampling import SMOTE
 from imblearn.combine import SMOTETomek
 import joblib
+import shap
 
 # Try to import XGBoost and LightGBM
 try:
@@ -126,14 +129,14 @@ def generate_data(n_samples=10000):
     
     logger.info(f"Generating {n_samples} samples...")
     
-    generator = DebtCollectionDataGenerator(n_samples=n_samples)
-    df = generator.generate_dataset()
+    generator = DebtDataGenerator()
+    df = generator.generate_data(n_samples=n_samples)
     
     # Save raw data
     df.to_csv('data/raw/debt_collection_data.csv', index=False)
     
     logger.info(f"Generated dataset with {len(df)} samples")
-    logger.info(f"Outcome distribution:\n{df['Outcome'].value_counts()}")
+    logger.info(f"Target distribution:\n{df['payment_status'].value_counts()}")
     
     return df
 
@@ -152,7 +155,7 @@ def preprocess_data(df):
     )
     
     # Fit and transform
-    X_processed, y_encoded = preprocessor.fit_transform(df, target_column='Outcome')
+    X_processed, y_encoded = preprocessor.fit_transform(df, target_column='payment_status')
     
     # Save processed data
     np.save('data/processed/X_processed.npy', X_processed)
@@ -382,7 +385,7 @@ def generate_report(results, df):
         f"- Features after engineering: {np.load('data/processed/X_engineered.npy').shape[1]}",
         "",
         "TARGET DISTRIBUTION:",
-        df['Outcome'].value_counts().to_string(),
+        df['payment_status'].value_counts().to_string(),
         "",
         "MODEL PERFORMANCE:",
         "-" * 30
@@ -435,18 +438,114 @@ def generate_report(results, df):
     
     return report
 
+def generate_shap_explanations(models, X_test, y_test, feature_names=None, dagshub_tracker=None):
+    """Generate SHAP explanations for the best model"""
+    
+    logger.info("Generating SHAP explanations...")
+    
+    try:
+        # Get the best model (first in the sorted list)
+        best_model_name = list(models.keys())[0]
+        best_model = models[best_model_name]
+        
+        logger.info(f"Creating SHAP explanations for {best_model_name}")
+        
+        # Determine model type
+        if 'forest' in best_model_name.lower() or 'tree' in best_model_name.lower():
+            model_type = 'tree'
+        elif 'xgb' in best_model_name.lower() or 'lgb' in best_model_name.lower():
+            model_type = 'tree'
+        else:
+            model_type = 'linear'
+        
+        # Create explainer
+        explainer = DebtCollectionExplainer(best_model, model_type)
+        
+        # Use subset for speed
+        sample_size = min(100, len(X_test))
+        sample_indices = np.random.choice(len(X_test), sample_size, replace=False)
+        X_sample = X_test[sample_indices]
+        
+        # Generate feature names if not provided
+        if feature_names is None:
+            feature_names = [f"feature_{i}" for i in range(X_test.shape[1])]
+        
+        # Create explainer
+        explainer.create_explainer(X_sample[:50], feature_names)
+        
+        # Get global feature importance
+        global_importance = explainer.global_feature_importance(X_sample)
+        
+        # Create summary plot
+        summary_plot_path = explainer.create_summary_plot(X_sample[:50])
+        
+        # Log to DagsHub if available
+        if dagshub_tracker:
+            with dagshub_tracker.start_experiment("shap_explanations"):
+                # Log top features as metrics
+                for i, feature in enumerate(global_importance['top_features'][:10]):
+                    dagshub_tracker.log_metrics({
+                        f'top_feature_{i+1}_importance': feature['importance']
+                    })
+                
+                # Log explainability artifacts
+                dagshub_tracker.log_artifacts(summary_plot_path, "shap_summary_plot")
+        
+        logger.info("SHAP explanations generated successfully")
+        
+        return {
+            'global_importance': global_importance,
+            'summary_plot': summary_plot_path,
+            'model_name': best_model_name,
+            'samples_analyzed': sample_size
+        }
+        
+    except Exception as e:
+        logger.error(f"SHAP explanation generation failed: {e}")
+        return None
+
 def main():
-    """Main pipeline execution"""
+    """Main pipeline execution with command line argument support"""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Run complete debt collection ML pipeline')
+    parser.add_argument('--dagshub-owner', type=str, default='',
+                       help='DagsHub repository owner')
+    parser.add_argument('--dagshub-repo', type=str, default='',
+                       help='DagsHub repository name')
+    parser.add_argument('--samples', type=int, default=10000,
+                       help='Number of samples to generate')
+    
+    args = parser.parse_args()
     
     print("🚀 Starting Complete Debt Collection ML Pipeline...")
     print("="*60)
     
+    # Initialize DagsHub tracking if provided
+    dagshub_tracker = None
+    if args.dagshub_owner and args.dagshub_repo:
+        try:
+            from src.utils.dagshub_integration import DagsHubTracker
+            dagshub_tracker = DagsHubTracker(args.dagshub_owner, args.dagshub_repo)
+            print(f"📊 DagsHub tracking enabled: {args.dagshub_owner}/{args.dagshub_repo}")
+        except Exception as e:
+            print(f"⚠️ DagsHub tracking failed: {e}")
+    
     try:
+        # Start experiment tracking
+        if dagshub_tracker:
+            dagshub_tracker.start_experiment("complete_pipeline")
+            dagshub_tracker.log_params({
+                "samples": args.samples,
+                "pipeline_version": "1.0",
+                "timestamp": datetime.now().isoformat()
+            })
+        
         # Step 1: Setup
         create_directories()
         
         # Step 2: Generate data
-        df = generate_data(n_samples=10000)
+        df = generate_data(n_samples=args.samples)
         
         # Step 3: Preprocess data
         X_processed, y_encoded, preprocessor = preprocess_data(df)
@@ -457,8 +556,48 @@ def main():
         # Step 5: Train models
         results, X_test, y_test = train_models(X_engineered, y_encoded)
         
-        # Step 6: Generate report
+        # Step 5.5: Generate SHAP explanations
+        logger.info("Generating SHAP explanations for model interpretability...")
+        
+        # Get trained models (need to modify train_models to return models)
+        trained_models = {}
+        for model_name in results.keys():
+            try:
+                model_path = f"models/trained/{model_name}.joblib"
+                if Path(model_path).exists():
+                    trained_models[model_name] = joblib.load(model_path)
+            except Exc:
+                logger.warning(f"Could not lo")
+        
+        # Generate SHAP explanatilable
+        shap_results = None
+        if trained_models:
+            shap_results = generate_shap_ions(
+                trained_models, X_test, y 
+                feature_names=None, dagshub_tracker=dagshub_tracker
+            )
+        
+        # Step 6: Generate reportest,_texplanate avaf models arons ii}ame}: {emodel_n model {adeption as e
         report = generate_report(results, df)
+        
+        # Log results to DagsHub
+        if dagshub_tracker:
+            best_model = max(results.keys(), key=lambda k: results[k]['f1_score'])
+            dagshub_tracker.log_metrics({
+                "best_model": best_model,
+                "best_f1_score": max(results[k]['f1_score'] for k in results.keys()),
+                "best_accuracy": max(results[k]['accuracy'] for k in results.keys()),
+                "models_trained": len(results),
+                "dataset_size": len(df)
+            })
+            
+            # Log individual model results
+            for model_name, metrics in results.items():
+                dagshub_tracker.log_metrics({
+                    f"{model_name}_accuracy": metrics['accuracy'],
+                    f"{model_name}_f1_score": metrics['f1_score'],
+                    f"{model_name}_roc_auc": metrics['roc_auc']
+                })
         
         print("\n✅ Pipeline completed successfully!")
         print(f"📊 Best model: {max(results.keys(), key=lambda k: results[k]['f1_score'])}")
@@ -485,11 +624,29 @@ def main():
         with open('reports/results_summary.json', 'w') as f:
             json.dump(summary, f, indent=2)
         
+        # Create metrics.json for DVC
+        metrics_summary = {
+            "accuracy": float(max(results[k]['accuracy'] for k in results.keys())),
+            "f1_score": float(max(results[k]['f1_score'] for k in results.keys())),
+            "roc_auc": float(max(results[k]['roc_auc'] for k in results.keys()))
+        }
+        
+        with open('reports/metrics.json', 'w') as f:
+            json.dump(metrics_summary, f, indent=2)
+        
+        # Finish experiment
+        if dagshub_tracker:
+            dagshub_tracker.finish_experiment()
+        
         return True
         
     except Exception as e:
         logger.error(f"Pipeline failed: {e}")
         print(f"❌ Pipeline failed: {e}")
+        
+        if dagshub_tracker:
+            dagshub_tracker.finish_experiment()
+        
         return False
 
 if __name__ == "__main__":

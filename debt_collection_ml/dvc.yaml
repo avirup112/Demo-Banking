@@ -1,4 +1,4 @@
-# DVC Pipeline for Debt Collection ML
+# Enhanced DVC Pipeline for Debt Collection ML
 # Repository: avirup112/Demo-Banking
 
 stages:
@@ -30,16 +30,20 @@ stages:
     - data/features/X_train_features.npy
     - data/features/X_test_features.npy
     
-  model_training:
-    cmd: python run_complete_pipeline.py --dagshub-owner avirup112 --dagshub-repo Demo-Banking
+  enhanced_training:
+    cmd: python run_enhanced_pipeline.py --samples 10000 --dagshub-owner avirup112 --dagshub-repo Demo-Banking --enable-shap
     deps:
-    - run_complete_pipeline.py
-    - data/features/X_train_features.npy
-    - data/features/X_test_features.npy
-    - data/processed/y_train.npy
-    - data/processed/y_test.npy
+    - run_enhanced_pipeline.py
+    - src/data/data_generator.py
+    - src/data/data_preprocessor.py
+    - src/features/feature_engineering.py
+    - src/explainability/shap_explainer.py
+    - src/utils/dagshub_integration.py
     outs:
-    - models/trained/best_model.joblib
-    - reports/results_summary.json
+    - models/trained/
+    - models/artifacts/
+    - reports/enhanced_pipeline_report.txt
+    - reports/model_comparison.csv
+    - explanations/
     metrics:
     - reports/metrics.json

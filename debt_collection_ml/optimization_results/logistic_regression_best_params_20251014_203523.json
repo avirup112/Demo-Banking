@@ -1,0 +1,13 @@
+{
+  "model_name": "logistic_regression",
+  "best_params": {
+    "C": 1.7651524245449533e-06,
+    "penalty": null,
+    "solver": "newton-cg",
+    "max_iter": 796,
+    "class_weight": null
+  },
+  "best_score": 0.7881229232850641,
+  "timestamp": "20251014_203523",
+  "n_trials": 2
+}

@@ -4,6 +4,7 @@ from sklearn.preprocessing import StandardScaler, RobustScaler, MinMaxScaler
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder, OrdinalEncoder
 from sklearn.impute import SimpleImputer, KNNImputer
 from sklearn.experimental import enable_iterative_imputer
+from sklearn.impute import IterativeImputer
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -446,3 +447,85 @@ class AdvancedDataPreprocessor:
         self.categorical_features = preprocessor_data['categorical_features']
         
         self.logger.info(f"Preprocessor loaded from {filepath}")
+
+def main():
+    """Main function with command line argument support"""
+    import argparse
+    from pathlib import Path
+    
+    parser = argparse.ArgumentParser(description='Preprocess debt collection data')
+    parser.add_argument('--input', type=str, required=True,
+                       help='Input CSV file path')
+    parser.add_argument('--output', type=str, required=True,
+                       help='Output directory for processed data')
+    parser.add_argument('--target-column', type=str, default='payment_status',
+                       help='Target column name')
+    parser.add_argument('--test-size', type=float, default=0.2,
+                       help='Test set size (0.0-1.0)')
+    parser.add_argument('--random-state', type=int, default=42,
+                       help='Random state for reproducibility')
+    
+    args = parser.parse_args()
+    
+    # Setup logging
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f"Loading data from {args.input}")
+    
+    # Load data
+    df = pd.read_csv(args.input)
+    logger.info(f"Loaded dataset with shape: {df.shape}")
+    
+    # Initialize preprocessor
+    preprocessor = AdvancedDataPreprocessor(
+        imputation_strategy='knn',
+        scaling_method='standard',
+        encoding_method='onehot',
+        handle_outliers=True,
+        outlier_method='iqr'
+    )
+    
+    # Preprocess data
+    X_processed, y_encoded = preprocessor.fit_transform(df, target_column=args.target_column)
+    
+    # Split data
+    X_train, X_test, y_train, y_test = train_test_split(
+        X_processed, y_encoded, 
+        test_size=args.test_size, 
+        random_state=args.random_state,
+        stratify=y_encoded
+    )
+    
+    # Create output directory
+    output_path = Path(args.output)
+    output_path.mkdir(parents=True, exist_ok=True)
+    
+    # Save processed data
+    np.save(output_path / 'X_train.npy', X_train)
+    np.save(output_path / 'X_test.npy', X_test)
+    np.save(output_path / 'y_train.npy', y_train)
+    np.save(output_path / 'y_test.npy', y_test)
+    
+    # Save preprocessor
+    preprocessor.save_preprocessor(output_path / 'preprocessor.joblib')
+    
+    # Save feature names
+    import json
+    feature_info = {
+        'feature_names': preprocessor.feature_names,
+        'target_classes': list(preprocessor.label_encoder.classes_),
+        'preprocessing_info': preprocessor.get_preprocessing_info()
+    }
+    
+    with open(output_path / 'feature_info.json', 'w') as f:
+        json.dump(feature_info, f, indent=2)
+    
+    logger.info(f"✅ Preprocessing complete!")
+    logger.info(f"📁 Saved to: {output_path}")
+    logger.info(f"📊 Training set shape: {X_train.shape}")
+    logger.info(f"📊 Test set shape: {X_test.shape}")
+    logger.info(f"🎯 Target classes: {list(preprocessor.label_encoder.classes_)}")
+
+if __name__ == "__main__":
+    main()

@@ -2,6 +2,4 @@
     analytics = false
     autostage = true
 ['remote "origin"']
-    url = https://dagshub.com/YOUR_USERNAME/debt-collection-ml.dvc
-[machine]
-    region = us-east-1
+    url = https://dagshub.com/avirup112/Demo-Banking.dvc
