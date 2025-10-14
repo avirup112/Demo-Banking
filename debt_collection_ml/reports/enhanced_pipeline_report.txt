@@ -1,56 +1,56 @@
 ENHANCED DEBT COLLECTION ML PIPELINE REPORT
 =======================================================
 
-Generated: 2025-10-15 01:39:59
+Generated: 2025-10-15 01:51:27
 
 DATASET OVERVIEW:
-- Total samples: 10,000
+- Total samples: 5,000
 - Features after preprocessing: 14
 - Features after engineering: 50
 
 TARGET DISTRIBUTION:
 payment_status
-partial_payment    6624
-full_payment       1743
-no_payment         1633
+partial_payment    3281
+full_payment        889
+no_payment          830
 
 MODEL PERFORMANCE:
 ------------------------------
 
 RandomForest_Optimized:
-  - Accuracy: 0.6305
-  - F1-Score (Weighted): 0.6406
-  - F1-Score (Macro): 0.6032
-  - Business F1: 0.6406
-  - ROC-AUC: 0.7672
-
-LightGBM:
-  - Accuracy: 0.6290
-  - F1-Score (Weighted): 0.6393
-  - F1-Score (Macro): 0.5925
-  - Business F1: 0.6393
-  - ROC-AUC: 0.7523
-
-XGBoost:
-  - Accuracy: 0.6270
-  - F1-Score (Weighted): 0.6373
-  - F1-Score (Macro): 0.5929
-  - Business F1: 0.6373
-  - ROC-AUC: 0.7583
+  - Accuracy: 0.6340
+  - F1-Score (Weighted): 0.6437
+  - F1-Score (Macro): 0.5993
+  - Business F1: 0.6437
+  - ROC-AUC: 0.7498
 
 ExtraTrees:
-  - Accuracy: 0.6215
-  - F1-Score (Weighted): 0.6319
-  - F1-Score (Macro): 0.5975
-  - Business F1: 0.6319
-  - ROC-AUC: 0.7662
+  - Accuracy: 0.6300
+  - F1-Score (Weighted): 0.6402
+  - F1-Score (Macro): 0.6043
+  - Business F1: 0.6402
+  - ROC-AUC: 0.7603
+
+LightGBM:
+  - Accuracy: 0.6270
+  - F1-Score (Weighted): 0.6366
+  - F1-Score (Macro): 0.5862
+  - Business F1: 0.6366
+  - ROC-AUC: 0.7377
+
+XGBoost:
+  - Accuracy: 0.6230
+  - F1-Score (Weighted): 0.6329
+  - F1-Score (Macro): 0.5831
+  - Business F1: 0.6329
+  - ROC-AUC: 0.7391
 
 LogisticRegression_Balanced:
-  - Accuracy: 0.5990
-  - F1-Score (Weighted): 0.6082
-  - F1-Score (Macro): 0.5828
-  - Business F1: 0.6082
-  - ROC-AUC: 0.7733
+  - Accuracy: 0.6010
+  - F1-Score (Weighted): 0.6101
+  - F1-Score (Macro): 0.5878
+  - Business F1: 0.6101
+  - ROC-AUC: 0.7677
 
 EXPLAINABILITY INSIGHTS (SHAP):
 ===================================
@@ -58,21 +58,21 @@ Model Analyzed: RandomForest_Optimized
 Samples Analyzed: 100
 
 TOP 10 FEATURES DRIVING REPAYMENT DECISIONS:
- 1. feature_1                 (Importance: 0.0361)
- 2. feature_5                 (Importance: 0.0281)
- 3. feature_24                (Importance: 0.0253)
- 4. feature_43                (Importance: 0.0220)
- 5. feature_3                 (Importance: 0.0212)
- 6. feature_37                (Importance: 0.0185)
- 7. feature_31                (Importance: 0.0166)
- 8. feature_33                (Importance: 0.0164)
- 9. feature_6                 (Importance: 0.0164)
-10. feature_35                (Importance: 0.0139)
+ 1. feature_1                 (Importance: 0.0356)
+ 2. feature_24                (Importance: 0.0259)
+ 3. feature_5                 (Importance: 0.0223)
+ 4. feature_43                (Importance: 0.0213)
+ 5. feature_30                (Importance: 0.0197)
+ 6. feature_3                 (Importance: 0.0174)
+ 7. feature_37                (Importance: 0.0168)
+ 8. feature_32                (Importance: 0.0158)
+ 9. feature_2                 (Importance: 0.0154)
+10. feature_27                (Importance: 0.0128)
 
 SHAP Summary Plot: explanations\shap_summary_plot.png
 
 BEST MODEL: RandomForest_Optimized
-Best F1-Score: 0.6406
+Best F1-Score: 0.6437
 Performance Target (0.65): NOT MET
 
 DAGSHUB INTEGRATION:
