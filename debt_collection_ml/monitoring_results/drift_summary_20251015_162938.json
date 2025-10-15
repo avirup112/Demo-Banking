@@ -1,0 +1,12 @@
+{
+  "timestamp": "2025-10-15T16:29:38.229257",
+  "drift_detected": true,
+  "features_with_drift": 2,
+  "total_features": 50,
+  "overall_drift_score": 0.12666666666666665,
+  "alerts": [
+    "DRIFT ALERT: 2 features showing drift",
+    "Feature 'feature_9' showing significant drift",
+    "Feature 'feature_10' showing significant drift"
+  ]
+}

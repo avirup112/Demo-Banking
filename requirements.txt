@@ -12,8 +12,7 @@ catboost==1.2
 # Imbalanced Learning
 imbalanced-learn==0.11.0
 
-# Hyperparameter Optimization
-optuna==3.3.0
+# Hyperparameter Optimization (Fast Grid/Random Search)
 hyperopt==0.2.7
 
 # Model Explainability

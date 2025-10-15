@@ -1,0 +1,13 @@
+{
+  "model_name": "test_model",
+  "model_version": "v1",
+  "deployment_type": "staging",
+  "environment": "staging",
+  "health_check_endpoint": "/health/test_model",
+  "rollback_threshold": 0.95,
+  "max_rollback_attempts": 3,
+  "deployment_timeout": 300,
+  "health_check_interval": 30,
+  "blue_green_enabled": true,
+  "auto_rollback_enabled": true
+}

@@ -30,10 +30,12 @@ stages:
     - data/features/X_train_features.npy
     - data/features/X_test_features.npy
     
-  enhanced_training:
-    cmd: python run_enhanced_pipeline.py --samples 10000 --dagshub-owner avirup112 --dagshub-repo Demo-Banking --enable-shap
+  complete_pipeline:
+    cmd: python run_complete_pipeline.py --samples 10000 --dagshub-owner avirup112 --dagshub-repo Demo-Banking --dashboard-timeout 180 --no-browser
     deps:
+    - run_complete_pipeline.py
     - run_enhanced_pipeline.py
+    - streamlit_dashboard.py
     - src/data/data_generator.py
     - src/data/data_preprocessor.py
     - src/features/feature_engineering.py
@@ -42,7 +44,6 @@ stages:
     outs:
     - models/trained/
     - models/artifacts/
-    - reports/enhanced_pipeline_report.txt
     - reports/model_comparison.csv
     - explanations/
     metrics:

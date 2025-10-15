@@ -32,22 +32,52 @@ debt-collection-ml-system/
 
 ## 🚀 Quick Start
 
-### Option 1: DagsHub + DVC Integration (Recommended)
+### 🎯 One-Click Launch (Recommended)
 
 ```bash
-# 1. Setup DagsHub integration
-python scripts/setup_dagshub.py --repo-owner YOUR_USERNAME --create-config
+# Run everything automatically: ML training + Dashboard launch
+python run_all.py
 
-# 2. Create repository on DagsHub and push code
-git init
-git add .
-git commit -m "Initial commit"
-git remote add origin https://dagshub.com/YOUR_USERNAME/debt-collection-ml.git
-git push -u origin main
+# This will:
+# 1. Generate synthetic data (10,000 samples)
+# 2. Train and optimize ML models (F1 > 0.65)
+# 3. Generate SHAP explanations
+# 4. Launch interactive dashboard at http://localhost:8501
+# 5. Auto-open browser
+```
 
-# 3. Run DVC pipeline
-python scripts/dvc_pipeline.py init
-python scripts/dvc_pipeline.py run
+### ⚡ Quick Mode (Fast Testing)
+
+```bash
+# Quick run with fewer samples (1,000 samples, ~45 seconds)
+python run_all.py --quick --samples 1000
+```
+
+### 🔧 Manual Control
+
+```bash
+# 1. Run ML pipeline only
+python run_enhanced_pipeline.py --samples 1000 --optimization-method optuna
+
+# 2. Launch dashboard separately
+streamlit run streamlit_dashboard.py
+
+# 3. Run complete pipeline with custom settings
+python run_complete_pipeline.py --samples 5000 --dashboard-timeout 600
+```
+
+### 📊 DVC Pipeline (Advanced)
+
+```bash
+# Run full DVC pipeline with automatic dashboard launch
+dvc repro
+
+# This runs all stages:
+# - data_generation
+# - data_preprocessing  
+# - feature_engineering
+# - complete_pipeline (includes dashboard)
+```
 
 # 4. View results:
 # - Experiments: https://dagshub.com/YOUR_USERNAME/debt-collection-ml.mlflow

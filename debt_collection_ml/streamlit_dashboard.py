@@ -424,13 +424,37 @@ def create_dagshub_integration_status():
     
     # Try to load DagsHub config
     try:
-        if Path(".dagshub_config.json").exists():
-            with open(".dagshub_config.json", 'r') as f:
+        config_file = Path(".dagshub/config.json")
+        if config_file.exists():
+            with open(config_file, 'r') as f:
                 config = json.load(f)
             
-            st.info(f"**Repository:** {config['repo_url']}")
-            st.info(f"**Owner:** {config['repo_owner']}")
-            st.info(f"**Name:** {config['repo_name']}")
+            if config.get('setup_complete', False):
+                # Check current MLflow URI to see if we're using DagsHub or local
+                import mlflow
+                current_uri = mlflow.get_tracking_uri()
+                is_local = current_uri.startswith("file:")
+                
+                if is_local:
+                    st.warning("⚠️ Using Local MLflow Tracking")
+                    st.info("DagsHub configured but connection failed - using local fallback")
+                    st.info(f"**Local MLflow URI:** {current_uri}")
+                else:
+                    st.success("✅ DagsHub MLflow Active!")
+                    st.info(f"**Repository:** {config['repo_url']}")
+                    st.info(f"**MLflow URI:** {config['mlflow_uri']}")
+                
+                st.info(f"**Owner:** {config['repo_owner']}")
+                st.info(f"**Name:** {config['repo_name']}")
+                
+                # Show setup type
+                setup_type = config.get('setup_type', 'full')
+                if setup_type == 'simple':
+                    st.info("🔧 **Setup Type:** Simple (MLflow URI configured)")
+                else:
+                    st.info("🔧 **Setup Type:** Full DagsHub integration")
+            else:
+                st.warning("⚠️ DagsHub configuration incomplete")
             
             # Recent experiments
             if dagshub_experiments:
@@ -455,7 +479,8 @@ def create_dagshub_integration_status():
                     exp_df = pd.DataFrame(recent_experiments)
                     st.dataframe(exp_df, use_container_width=True)
         else:
-            st.warning("DagsHub configuration not found. Please run the setup script.")
+            st.warning("⚠️ DagsHub configuration not found. Please run the setup script.")
+            st.code("python setup_dagshub_simple.py", language="bash")
             
     except Exception as e:
         st.error(f"Error loading DagsHub status: {e}")

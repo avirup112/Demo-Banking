@@ -1,0 +1,40 @@
+{
+  "id": "27fafa74",
+  "name": "Model_Performance_Test",
+  "created_at": "2025-10-15T17:19:32.625340",
+  "status": "active",
+  "models": {
+    "control": {
+      "name": "LightGBM_Optimized",
+      "model": "<class 'lightgbm.sklearn.LGBMClassifier'>",
+      "traffic_allocation": 0.5
+    },
+    "treatment": {
+      "name": "RandomForest_Optimized",
+      "model": "<class 'sklearn.ensemble._forest.RandomForestClassifier'>",
+      "traffic_allocation": 0.5
+    }
+  },
+  "metrics": {
+    "primary": "f1_score",
+    "secondary": [
+      "accuracy",
+      "precision",
+      "recall"
+    ]
+  },
+  "results": {
+    "control": {
+      "predictions": [],
+      "actuals": [],
+      "metrics": {}
+    },
+    "treatment": {
+      "predictions": [],
+      "actuals": [],
+      "metrics": {}
+    }
+  },
+  "statistics": {},
+  "conclusion": null
+}

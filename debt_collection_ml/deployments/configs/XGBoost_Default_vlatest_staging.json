@@ -1,0 +1,13 @@
+{
+  "model_name": "XGBoost_Default",
+  "model_version": "latest",
+  "deployment_type": "staging",
+  "environment": "staging",
+  "health_check_endpoint": "/health/XGBoost_Default",
+  "rollback_threshold": 0.95,
+  "max_rollback_attempts": 3,
+  "deployment_timeout": 300,
+  "health_check_interval": 30,
+  "blue_green_enabled": true,
+  "auto_rollback_enabled": true
+}

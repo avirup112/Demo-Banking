@@ -438,6 +438,219 @@ class DebtCollectionExplainer:
         
         return insights
     
+    def generate_shap_insights(self, X_sample: np.ndarray, feature_names: List[str] = None, 
+                              max_samples: int = 100) -> Dict[str, Any]:
+        """Generate comprehensive SHAP insights and recommendations for feature engineering"""
+        
+        if X_sample.shape[0] > max_samples:
+            # Sample for performance
+            indices = np.random.choice(X_sample.shape[0], max_samples, replace=False)
+            X_sample = X_sample[indices]
+        
+        insights = {
+            'timestamp': pd.Timestamp.now().isoformat(),
+            'sample_size': X_sample.shape[0],
+            'feature_insights': {},
+            'recommendations': [],
+            'feature_engineering_suggestions': [],
+            'model_behavior_analysis': {},
+            'actionable_insights': []
+        }
+        
+        try:
+            # Calculate SHAP values
+            shap_values = self.explainer.shap_values(X_sample)
+            
+            # Handle multi-class case
+            if isinstance(shap_values, list):
+                # Use the first class for insights (or could aggregate)
+                shap_matrix = shap_values[0]
+            else:
+                shap_matrix = shap_values
+            
+            # Feature importance analysis
+            feature_importance = np.abs(shap_matrix).mean(axis=0)
+            
+            if feature_names is None:
+                feature_names = self.feature_names or [f"feature_{i}" for i in range(len(feature_importance))]
+            
+            # Analyze each feature
+            for i, (importance, feature_name) in enumerate(zip(feature_importance, feature_names)):
+                feature_shap = shap_matrix[:, i]
+                
+                insights['feature_insights'][feature_name] = {
+                    'importance': float(importance),
+                    'mean_shap': float(np.mean(feature_shap)),
+                    'std_shap': float(np.std(feature_shap)),
+                    'positive_impact_ratio': float(np.mean(feature_shap > 0)),
+                    'impact_consistency': float(1 - np.std(feature_shap) / (np.abs(np.mean(feature_shap)) + 1e-8)),
+                    'percentile_95': float(np.percentile(feature_shap, 95)),
+                    'percentile_5': float(np.percentile(feature_shap, 5)),
+                    'outlier_impact': float(np.mean(np.abs(feature_shap) > 2 * np.std(feature_shap)))
+                }
+            
+            # Model behavior analysis
+            insights['model_behavior_analysis'] = self._analyze_model_behavior(shap_matrix, feature_names)
+            
+            # Generate recommendations
+            insights['recommendations'] = self._generate_feature_recommendations(insights['feature_insights'])
+            insights['feature_engineering_suggestions'] = self._generate_engineering_suggestions(insights['feature_insights'])
+            insights['actionable_insights'] = self._generate_actionable_insights(insights['feature_insights'])
+            
+        except Exception as e:
+            insights['error'] = str(e)
+            logger.error(f"Failed to generate SHAP insights: {e}")
+        
+        return insights
+    
+    def _analyze_model_behavior(self, shap_matrix: np.ndarray, feature_names: List[str]) -> Dict[str, Any]:
+        """Analyze overall model behavior patterns"""
+        
+        from scipy import stats
+        
+        behavior = {
+            'prediction_stability': float(np.mean(np.std(shap_matrix, axis=0))),
+            'feature_interactions': {},
+            'decision_patterns': {},
+            'risk_factors': []
+        }
+        
+        # Analyze feature interactions (simplified correlation of SHAP values)
+        if shap_matrix.shape[1] > 1:
+            shap_corr = np.corrcoef(shap_matrix.T)
+            
+            # Find strong interactions
+            for i in range(len(feature_names)):
+                for j in range(i+1, len(feature_names)):
+                    corr = shap_corr[i, j]
+                    if abs(corr) > 0.3:  # Threshold for significant interaction
+                        behavior['feature_interactions'][f"{feature_names[i]}_x_{feature_names[j]}"] = float(corr)
+        
+        # Identify decision patterns
+        total_shap = np.sum(shap_matrix, axis=1)
+        behavior['decision_patterns'] = {
+            'high_confidence_predictions': float(np.mean(np.abs(total_shap) > np.std(total_shap))),
+            'prediction_distribution': {
+                'mean': float(np.mean(total_shap)),
+                'std': float(np.std(total_shap)),
+                'skewness': float(stats.skew(total_shap)) if len(total_shap) > 2 else 0.0
+            }
+        }
+        
+        # Identify risk factors (features with high negative impact)
+        feature_impacts = np.mean(shap_matrix, axis=0)
+        for i, (impact, name) in enumerate(zip(feature_impacts, feature_names)):
+            if impact < -0.1:  # Significant negative impact
+                behavior['risk_factors'].append({
+                    'feature': name,
+                    'average_impact': float(impact),
+                    'frequency': float(np.mean(shap_matrix[:, i] < 0))
+                })
+        
+        return behavior
+    
+    def _generate_feature_recommendations(self, feature_insights: Dict[str, Any]) -> List[str]:
+        """Generate feature engineering recommendations"""
+        
+        recommendations = []
+        
+        # Sort features by importance
+        sorted_features = sorted(feature_insights.items(), 
+                               key=lambda x: x[1]['importance'], reverse=True)
+        
+        # High importance, low consistency features
+        inconsistent_important = [
+            name for name, data in sorted_features[:10] 
+            if data['impact_consistency'] < 0.3
+        ]
+        if inconsistent_important:
+            recommendations.append(f"Consider feature transformations for inconsistent high-impact features: {', '.join(inconsistent_important[:3])}")
+        
+        # Low importance features
+        low_importance = [name for name, data in feature_insights.items() if data['importance'] < 0.01]
+        if len(low_importance) > 5:
+            recommendations.append(f"Consider removing {len(low_importance)} low-impact features to reduce model complexity")
+        
+        # Features with extreme outlier impact
+        outlier_features = [
+            name for name, data in feature_insights.items() 
+            if data['outlier_impact'] > 0.1 and data['importance'] > 0.05
+        ]
+        if outlier_features:
+            recommendations.append(f"Apply outlier handling to features with extreme impacts: {', '.join(outlier_features[:3])}")
+        
+        return recommendations
+    
+    def _generate_engineering_suggestions(self, feature_insights: Dict[str, Any]) -> List[str]:
+        """Generate specific feature engineering suggestions"""
+        
+        suggestions = []
+        
+        # Features with high positive impact ratio
+        positive_features = [
+            name for name, data in feature_insights.items() 
+            if data['positive_impact_ratio'] > 0.8 and data['importance'] > 0.05
+        ]
+        if positive_features:
+            suggestions.append(f"Create interaction terms with consistently positive features: {', '.join(positive_features[:2])}")
+        
+        # Features with balanced impact (could benefit from binning)
+        balanced_features = [
+            name for name, data in feature_insights.items() 
+            if 0.3 < data['positive_impact_ratio'] < 0.7 and data['importance'] > 0.05
+        ]
+        if balanced_features:
+            suggestions.append(f"Consider binning or polynomial features for balanced-impact features: {', '.join(balanced_features[:2])}")
+        
+        # High variance features
+        high_variance = [
+            name for name, data in feature_insights.items() 
+            if data['std_shap'] > 0.2 and data['importance'] > 0.05
+        ]
+        if high_variance:
+            suggestions.append(f"Apply normalization or scaling to high-variance features: {', '.join(high_variance[:3])}")
+        
+        return suggestions
+    
+    def _generate_actionable_insights(self, feature_insights: Dict[str, Any]) -> List[str]:
+        """Generate actionable business insights from SHAP analysis"""
+        
+        insights = []
+        
+        # Sort features by importance
+        sorted_features = sorted(feature_insights.items(), 
+                               key=lambda x: x[1]['importance'], reverse=True)
+        
+        # Top important features
+        top_features = sorted_features[:3]
+        insights.append(f"Focus on top 3 drivers: {', '.join([f[0] for f in top_features])}")
+        
+        # Features with consistent positive impact
+        positive_features = [name for name, data in feature_insights.items() 
+                           if data['positive_impact_ratio'] > 0.7 and data['importance'] > 0.05]
+        if positive_features:
+            insights.append(f"Consistently beneficial factors: {', '.join(positive_features[:3])}")
+        
+        # Features with high variability (potential for improvement)
+        variable_features = [name for name, data in feature_insights.items() 
+                           if data['impact_consistency'] < 0.5 and data['importance'] > 0.05]
+        if variable_features:
+            insights.append(f"Investigate inconsistent features: {', '.join(variable_features[:2])}")
+        
+        # Risk factors
+        risk_features = [name for name, data in feature_insights.items() 
+                        if data['mean_shap'] < -0.1 and data['importance'] > 0.05]
+        if risk_features:
+            insights.append(f"Monitor risk factors: {', '.join(risk_features[:2])}")
+        
+        # Feature engineering opportunities
+        low_impact_features = [name for name, data in feature_insights.items() 
+                             if data['importance'] < 0.01]
+        if len(low_impact_features) > 5:
+            insights.append(f"Consider removing {len(low_impact_features)} low-impact features for model simplification")
+        
+        return insights
+
     def _generate_human_readable_summary(self, report: Dict, 
                                        report_name: str) -> str:
         """Generate human-readable summary"""
