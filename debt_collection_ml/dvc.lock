@@ -67,3 +67,63 @@ stages:
       hash: md5
       md5: a3ad65c996075a6c77ec79ef5640ca31
       size: 3200128
+  complete_pipeline:
+    cmd: python run_complete_pipeline.py --samples 10000 --dagshub-owner 
+      avirup112 --dagshub-repo Demo-Banking --dashboard-timeout 180 --no-browser
+    deps:
+    - path: run_complete_pipeline.py
+      hash: md5
+      md5: 316f2a9cea328940cdca56d31d410a96
+      size: 9886
+    - path: run_enhanced_pipeline.py
+      hash: md5
+      md5: b74253cf67185bae87a6e4c5ccd894f7
+      size: 42399
+    - path: src/data/data_generator.py
+      hash: md5
+      md5: 0631504de76b039d8a3e1188687be10e
+      size: 14346
+    - path: src/data/data_preprocessor.py
+      hash: md5
+      md5: 09f116efc8660df4c050ce2307e0ab0f
+      size: 20801
+    - path: src/explainability/shap_explainer.py
+      hash: md5
+      md5: 985544e5658a32795ae812a8a7249083
+      size: 30799
+    - path: src/features/feature_engineering.py
+      hash: md5
+      md5: fa10afb12bf2f4dc1fb40e6e6caf5f54
+      size: 17152
+    - path: src/utils/dagshub_integration.py
+      hash: md5
+      md5: baf77d4c781db64469565dfe86e0f76a
+      size: 33324
+    - path: streamlit_dashboard.py
+      hash: md5
+      md5: 64c5846ace608c20140482cc266122ff
+      size: 19995
+    outs:
+    - path: explanations/
+      hash: md5
+      md5: b15682121eaff05119ecdad7201f4deb.dir
+      size: 415565
+      nfiles: 1
+    - path: models/artifacts/
+      hash: md5
+      md5: 340c23dc0a8678fc2a5cd93209314372.dir
+      size: 25149
+      nfiles: 3
+    - path: models/trained/
+      hash: md5
+      md5: b1925a9f163fc961a3148285b5e412fc.dir
+      size: 9766867
+      nfiles: 4
+    - path: reports/metrics.json
+      hash: md5
+      md5: f610c46ade9d55a035c9e02bd7ff1d3b
+      size: 373
+    - path: reports/model_comparison.csv
+      hash: md5
+      md5: 3a72b2adf72aeb594a146c79e48fdb8b
+      size: 473

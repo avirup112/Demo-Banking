@@ -167,8 +167,32 @@
       "health_score": 0.0,
       "error_message": "Failed to retrieve model LightGBM_Optimized vlatest",
       "rollback_count": 0
+    },
+    {
+      "deployment_id": "LightGBM_Optimized_vlatest_staging_1760533382",
+      "model_name": "LightGBM_Optimized",
+      "model_version": "latest",
+      "environment": "staging",
+      "status": "failed",
+      "start_time": "2025-10-15T18:33:02.223797",
+      "end_time": "2025-10-15T18:33:02.360925",
+      "health_score": 0.0,
+      "error_message": "Failed to retrieve model LightGBM_Optimized vlatest",
+      "rollback_count": 0
+    },
+    {
+      "deployment_id": "LightGBM_Optimized_vlatest_staging_1760543244",
+      "model_name": "LightGBM_Optimized",
+      "model_version": "latest",
+      "environment": "staging",
+      "status": "failed",
+      "start_time": "2025-10-15T21:17:24.052254",
+      "end_time": "2025-10-15T21:17:24.107667",
+      "health_score": 0.0,
+      "error_message": "Failed to retrieve model LightGBM_Optimized vlatest",
+      "rollback_count": 0
     }
   ],
   "deployment_history": [],
-  "last_updated": "2025-10-15T17:57:42.231042"
+  "last_updated": "2025-10-15T21:17:24.107667"
 }

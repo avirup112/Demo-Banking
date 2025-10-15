@@ -1,0 +1,40 @@
+MODEL VALIDATION AND SELECTION REPORT
+==================================================
+
+Generated: 2025-10-15 21:17:23
+Performance Threshold: 0.65
+Cross-Validation Folds: 5
+Time Series CV: True
+
+SUMMARY:
+- Total Models Evaluated: 4
+- Models Above Threshold: 0
+- Success Rate: 0.00%
+
+BEST MODEL:
+- Name: LightGBM_Optimized
+- F1 Score: 0.6476
+- Accuracy: 0.6375
+- ROC-AUC: 0.757191825308437
+- Performance Grade: D
+- Threshold Met: No
+
+MODEL RANKINGS (by Composite Score):
+----------------------------------------
+ 1. LightGBM_Optimized        F1: 0.6476 Acc: 0.6375 Grade: D
+ 2. RandomForest_Optimized    F1: 0.6406 Acc: 0.6305 Grade: D
+ 3. XGBoost_Optimized         F1: 0.6402 Acc: 0.6300 Grade: D
+ 4. LogisticRegression_Optimized F1: 0.6094 Acc: 0.6000 Grade: D
+
+F1 SCORE STATISTICS:
+- Mean: 0.6344 ± 0.0148
+- Range: 0.6094 - 0.6476
+- Median: 0.6404
+
+RECOMMENDATIONS:
+- Continue model development - threshold not met
+- Set up monitoring for model performance drift
+- Implement confidence-based prediction filtering
+- Consider ensemble methods for improved performance
+
+==================================================
