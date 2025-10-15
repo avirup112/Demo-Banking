@@ -1,0 +1,8 @@
+{
+  "timestamp": "2025-10-15T21:17:29.805841",
+  "drift_detected": false,
+  "features_with_drift": 0,
+  "total_features": 50,
+  "overall_drift_score": 0.0,
+  "alerts": []
+}

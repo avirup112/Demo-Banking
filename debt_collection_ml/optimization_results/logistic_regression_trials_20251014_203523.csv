@@ -1,3 +1,0 @@
-number,value,datetime_start,datetime_complete,duration,params_C,params_class_weight,params_max_iter,params_penalty,params_solver,state
-0,0.16666806496257364,2025-10-14 20:35:16.784698,2025-10-14 20:35:20.125677,0 days 00:00:03.340979,0.0030960101581081526,balanced,139,l1,newton-cg,COMPLETE
-1,0.7881229232850641,2025-10-14 20:35:20.130699,2025-10-14 20:35:23.455047,0 days 00:00:03.324348,1.7651524245449533e-06,,796,,newton-cg,COMPLETE

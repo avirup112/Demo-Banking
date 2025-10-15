@@ -1,7 +1,10 @@
 [core]
     analytics = false
     autostage = true
+    remote = origin
 [cache]
     dir = cache
 ['remote "origin"']
     url = https://dagshub.com/avirup112/Demo-Banking.dvc
+['remote "local"']
+    url = ../../dvc-storage

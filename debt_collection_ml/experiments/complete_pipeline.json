@@ -1,0 +1,18 @@
+{
+  "experiment_name": "complete_pipeline",
+  "tags": {
+    "repo_owner": "avirup112",
+    "repo_name": "Demo-Banking",
+    "framework": "debt_collection_ml",
+    "timestamp": "2025-10-14T20:14:48.543434"
+  },
+  "params": {
+    "samples": 10000,
+    "pipeline_version": "1.0",
+    "timestamp": "2025-10-14T20:14:48.545033"
+  },
+  "metrics": {},
+  "artifacts": [],
+  "start_time": "2025-10-14T20:14:48.543434",
+  "end_time": "2025-10-14T20:14:52.447075"
+}

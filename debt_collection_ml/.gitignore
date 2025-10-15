@@ -97,6 +97,10 @@ mlflow.db
 .dagshub/
 *.dvc
 
+# DVC Storage (should not be in Git)
+../dvc-storage/
+dvc-storage/
+
 # Logs and temporary files
 logs/*.log
 temp/
