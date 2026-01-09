@@ -24,11 +24,7 @@ logger = logging.getLogger(__name__)
 class DataDriftDetector:
     """Comprehensive data drift detection system"""
     
-    def __init__(self, 
-                 reference_data: pd.DataFrame,
-                 feature_columns: List[str],
-                 target_column: str = None,
-                 drift_threshold: float = 0.05):
+    def __init__(self, reference_data: pd.DataFrame,feature_columns: List[str],target_column: str = None,drift_threshold: float = 0.05):
         """
         Initialize drift detector
         

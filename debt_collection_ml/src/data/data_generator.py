@@ -10,11 +10,8 @@ from pathlib import Path
 import argparse
 from datetime import datetime, timedelta
 from typing import Tuple, Dict, Any
-import logging
-
-# Setup logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Import custom logger
+from ..logger.custom_logger import get_data_logger
 
 class DebtDataGenerator:
     """Generate synthetic debt collection data with realistic patterns"""
@@ -45,31 +42,38 @@ class DebtDataGenerator:
             'high': (80000, 150000),
             'very_high': (150000, 300000)
         }
+
+        self.logger.info("Data generator initialized", 
+                        random_state=random_state,
+                        debt_categories=len(self.debt_amount_ranges))
+
     
+    @get_data_logger().timer("generate_customer_demographics")
     def generate_customer_demographics(self, n_samples: int) -> pd.DataFrame:
         """Generate customer demographic data"""
         
-        # Age distribution (slightly skewed toward middle age)
-        age_weights = [0.2, 0.4, 0.3, 0.1]  # young, middle, senior, elderly
-        age_categories = np.random.choice(['young', 'middle', 'senior', 'elderly'], 
+        with self.logger.context("demographic_generation",samples=n_samples):
+            self.logger.info("Generating customer demographics", sample_count=n_samples)
+            # Age distribution (slightly skewed toward middle age)
+            age_weights = [0.2, 0.4, 0.3, 0.1]  # young, middle, senior, elderly
+            age_categories = np.random.choice(['young', 'middle', 'senior', 'elderly'], 
                                         size=n_samples, p=age_weights)
-        
-        ages = []
-        for category in age_categories:
-            min_age, max_age = self.age_ranges[category]
-            ages.append(np.random.randint(min_age, max_age + 1))
-        
-        # Income correlated with age (middle-aged tend to have higher income)
-        incomes = []
-        for age in ages:
-            if age < 30:
-                income_range = self.income_ranges['low']
-            elif age < 45:
-                income_range = self.income_ranges['medium']
-            elif age < 60:
-                income_range = self.income_ranges['high']
-            else:
-                income_range = self.income_ranges['medium']  # Retirement income
+            ages = []
+            for category in age_categories:
+                min_age, max_age = self.age_ranges[category]
+                ages.append(np.random.randint(min_age, max_age + 1))
+                
+            # Income correlated with age (middle-aged tend to have higher income)
+            incomes = []
+            for age in ages:
+                if age < 30:
+                    income_range = self.income_ranges['low']
+                elif age < 45:
+                    income_range = self.income_ranges['medium']
+                elif age < 60:
+                    income_range = self.income_ranges['high']
+                else:
+                    income_range = self.income_ranges['medium']  # Retirement income
             
             # Add some randomness
             base_income = np.random.uniform(income_range[0], income_range[1])
