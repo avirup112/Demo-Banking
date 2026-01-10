@@ -15,6 +15,8 @@ from typing import Dict, List, Tuple, Optional, Any
 import warnings
 warnings.filterwarnings('ignore')
 
+from ..logger.custom_logger import get_data_logger
+
 class OutlierHandler(BaseEstimator, TransformerMixin):
     """Custom transformer for handling outliers"""
     
