@@ -194,128 +194,153 @@ class DebtDataGenerator:
         
         with self.logger.context("behavioral_generation", samples=n_samples):
             self.logger.info("Generating behavioral features")
-        # Contact attempts correlated with days overdue
-        contact_attempts = []
-        for days in debt_chars['days_overdue']:
-            # More attempts for longer overdue periods
-            base_attempts = min(20, days / 10)
-            attempts = max(1, base_attempts + np.random.poisson(2))
-            contact_attempts.append(attempts)
-        
-        # Response rate correlated with credit score and age
-        response_rates = []
-        for credit_score, age in zip(demographics['credit_score'], demographics['customer_age']):
-            # Higher credit score = more responsive
-            base_rate = (credit_score - 300) / 550
+            # Contact attempts correlated with days overdue
+            contact_attempts = []
+            for days in debt_chars['days_overdue']:
+                # More attempts for longer overdue periods
+                base_attempts = min(20, days / 10)
+                attempts = max(1, base_attempts + np.random.poisson(2))
+                contact_attempts.append(attempts)
+
+            self.logger.metrics("average_contact_attempts",np.mean(contact_attempts), "attempts")
+            # Response rate correlated with credit score and age
+            response_rates = []
+            for credit_score, age in zip(demographics['credit_score'], demographics['customer_age']):
+                # Higher credit score = more responsive
+                base_rate = (credit_score - 300) / 550
+                
+                # Older people tend to be more responsive
+                age_factor = min(0.2, (age - 18) / 200)
+                rate = base_rate + age_factor + np.random.normal(0, 0.15)
+                response_rates.append(max(0, min(1, rate)))
+            self.logger.metrics("average_response_rate", np.mean(response_rates), "rate")
             
-            # Older people tend to be more responsive
-            age_factor = min(0.2, (age - 18) / 200)
+            # Promise to pay indicator
+            promise_to_pay = []
+            for response_rate in response_rates:
+                # More responsive people more likely to make promises
+                prob = response_rate * 0.7  # 70% of responsive people make promises
+                promise = np.random.random() < prob
+                promise_to_pay.append(promise)
+            # Number of previous promises
+            previous_promises = []
+            for promise, days_overdue in zip(promise_to_pay, debt_chars['days_overdue']):
+                if promise:
+                    # More promises for longer overdue periods
+                    promises = max(0, int(days_overdue / 30) + np.random.poisson(1))
+                else:
+                    promises = 0
+                previous_promises.append(promises)
             
-            rate = base_rate + age_factor + np.random.normal(0, 0.15)
-            response_rates.append(max(0, min(1, rate)))
-        
-        # Promise to pay indicator
-        promise_to_pay = []
-        for response_rate in response_rates:
-            # More responsive people more likely to make promises
-            prob = response_rate * 0.7  # 70% of responsive people make promises
-            promise = np.random.random() < prob
-            promise_to_pay.append(promise)
-        
-        # Number of previous promises
-        previous_promises = []
-        for promise, days_overdue in zip(promise_to_pay, debt_chars['days_overdue']):
-            if promise:
-                # More promises for longer overdue periods
-                promises = max(0, int(days_overdue / 30) + np.random.poisson(1))
-            else:
-                promises = 0
-            previous_promises.append(promises)
-        
-        return pd.DataFrame({
-            'contact_attempts': contact_attempts,
-            'response_rate': response_rates,
-            'promise_to_pay': promise_to_pay,
-            'previous_promises': previous_promises
-        })
+            df =  pd.DataFrame({
+                'contact_attempts': contact_attempts,
+                'response_rate': response_rates,
+                'promise_to_pay': promise_to_pay,
+                'previous_promises': previous_promises
+            })
+
+            self.logger.data_change("CREATE", "behavioral_features", len(df))
+
+            return df
     
+    @get_data_logger().timer("generate_target_variable")
     def generate_target_variable(self, demographics: pd.DataFrame, debt_chars: pd.DataFrame, 
                                behavioral: pd.DataFrame) -> pd.Series:
         """Generate the target variable (payment status)"""
         
-        payment_statuses = []
-        
-        for i in range(len(demographics)):
-            # Factors influencing payment probability
-            credit_score = demographics.iloc[i]['credit_score']
-            income = demographics.iloc[i]['annual_income']
-            debt_amount = debt_chars.iloc[i]['debt_amount']
-            days_overdue = debt_chars.iloc[i]['days_overdue']
-            payment_history = debt_chars.iloc[i]['payment_history_score']
-            response_rate = behavioral.iloc[i]['response_rate']
+        with self.logger.contract("target_generation"):
+            self.logger.info("Generating target variable")
             
-            # Calculate payment probability
-            # Higher credit score = higher payment probability
-            credit_factor = (credit_score - 300) / 550
+            payment_statuses = []
             
-            # Higher income relative to debt = higher payment probability
-            debt_to_income = debt_amount / income
-            income_factor = max(0, 1 - debt_to_income)
+            for i in range(len(demographics)):
+                # Factors influencing payment probability
+                credit_score = demographics.iloc[i]['credit_score']
+                income = demographics.iloc[i]['annual_income']
+                debt_amount = debt_chars.iloc[i]['debt_amount']
+                days_overdue = debt_chars.iloc[i]['days_overdue']
+                payment_history = debt_chars.iloc[i]['payment_history_score']
+                response_rate = behavioral.iloc[i]['response_rate']
+                
+                # Calculate payment probability
+                # Higher credit score = higher payment probability
+                
+                credit_factor = (credit_score - 300) / 550
+                
+                 # Higher income relative to debt = higher payment probability
+                 debt_to_income = debt_amount / income
+                 income_factor = max(0, 1 - debt_to_income)
+                 
+                 # Fewer days overdue = higher payment probability
+                 overdue_factor = max(0, 1 - days_overdue / 365)
+                 
+                 # Combine factors
+                 payment_prob = (
+                    0.3 * credit_factor +
+                    0.2 * income_factor +
+                    0.2 * overdue_factor +
+                    0.15 * payment_history +
+                    0.15 * response_rate
+                )
+                
+                # Add some randomness
+                payment_prob += np.random.normal(0, 0.1)
+                payment_prob = max(0, min(1, payment_prob))
+                
+                # Convert to categorical outcome
+                if payment_prob > 0.7:
+                    status = 'full_payment'
+                elif payment_prob > 0.4:
+                    status = 'partial_payment'
+                else:
+                    status = 'no_payment'
+                payment_statuses.append(status)
+                
+            target_series =  pd.Series(payment_statuses, name='payment_status')
+
+            # log target distribution
+            target_dist = target_series.value_counts().to_dict()
+            self.logger.info("Target variable distribution", target_distribution=target_dist)
+
+            for status, count in target_dist.items():
+                self.logger.metrics(f"target_{status}_count", count, "samples")
             
-            # Fewer days overdue = higher payment probability
-            overdue_factor = max(0, 1 - days_overdue / 365)
-            
-            # Combine factors
-            payment_prob = (
-                0.3 * credit_factor +
-                0.2 * income_factor +
-                0.2 * overdue_factor +
-                0.15 * payment_history +
-                0.15 * response_rate
-            )
-            
-            # Add some randomness
-            payment_prob += np.random.normal(0, 0.1)
-            payment_prob = max(0, min(1, payment_prob))
-            
-            # Convert to categorical outcome
-            if payment_prob > 0.7:
-                status = 'full_payment'
-            elif payment_prob > 0.4:
-                status = 'partial_payment'
-            else:
-                status = 'no_payment'
-            
-            payment_statuses.append(status)
-        
-        return pd.Series(payment_statuses, name='payment_status')
+            return target_series
     
+    @get_data_logger().timer("generate_data")
     def generate_data(self, n_samples: int = 10000) -> pd.DataFrame:
         """Generate complete synthetic dataset"""
         
-        logger.info(f"Generating {n_samples} synthetic debt collection samples...")
-        
-        # Generate each component
-        demographics = self.generate_customer_demographics(n_samples)
-        debt_chars = self.generate_debt_characteristics(n_samples, demographics)
-        behavioral = self.generate_behavioral_features(n_samples, demographics, debt_chars)
-        target = self.generate_target_variable(demographics, debt_chars, behavioral)
-        
-        # Combine all features
-        df = pd.concat([demographics, debt_chars, behavioral, target], axis=1)
-        
-        # Add customer ID
-        df.insert(0, 'customer_id', [f'CUST_{i:06d}' for i in range(n_samples)])
-        
-        # Add some derived features
-        df['debt_to_income_ratio'] = df['debt_amount'] / df['annual_income']
-        df['contact_success_rate'] = df['response_rate'] * np.random.uniform(0.8, 1.2, n_samples)
-        df['contact_success_rate'] = df['contact_success_rate'].clip(0, 1)
-        
-        logger.info(f"Generated dataset with {len(df)} samples and {len(df.columns)} features")
-        logger.info(f"Target distribution:\n{df['payment_status'].value_counts()}")
-        
-        return df
+        with self.logger.context("complete_data_generation",total_samples=n_samples):
+            self.logger.info("Starting complete dataset generation",
+                             target_samples=n_samples,
+                             random_state=self.random_state)
+            # Generate each component
+            demographics = self.generate_customer_demographics(n_samples)
+            debt_chars = self.generate_debt_characteristics(n_samples, demographics)
+            behavioral = self.generate_behavioral_features(n_samples, demographics, debt_chars)
+            target = self.generate_target_variable(demographics, debt_chars, behavioral)
+            
+            # Combine all features
+            df = pd.concat([demographics, debt_chars, behavioral, target], axis=1)
+            
+            # Add customer ID
+            df.insert(0, 'customer_id', [f'CUST_{i:06d}' for i in range(n_samples)])
+            
+            # Add some derived features
+            df['debt_to_income_ratio'] = df['debt_amount'] / df['annual_income']
+            df['contact_success_rate'] = df['response_rate'] * np.random.uniform(0.8, 1.2, n_samples)
+            df['contact_success_rate'] = df['contact_success_rate'].clip(0, 1)
+
+            # Audit the data generation
+            self.logger.audit("synthetic_data_generated", {
+                "samples": n_samples,
+                "features": len(df.columns),
+                "target_classes": len(df['payment_status'].unique()),
+                "data_quality_score": 100 - (df.isnull().sum().sum() / df.size * 100)
+            })
+            
+            return df
 
 def main():
     """Main function with command line argument support"""
@@ -330,28 +355,25 @@ def main():
     args = parser.parse_args()
     
     # Generate synthetic data
-    logger.info(f"Starting data generation with {args.size} samples...")
-    
-    generator = DebtDataGenerator(random_state=args.random_state)
-    df = generator.generate_data(n_samples=args.size)
-    
-    # Save the data
-    output_path = Path(args.output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(output_path, index=False)
-    
-    logger.info(f"✅ Generated {len(df)} samples")
-    logger.info(f"📁 Saved to: {output_path}")
-    logger.info(f"📊 Columns: {list(df.columns)}")
-    
-    # Display basic statistics
-    print(f"\n📈 Dataset Summary:")
-    print(f"Shape: {df.shape}")
-    print(f"Memory usage: {df.memory_usage(deep=True).sum() / 1024**2:.2f} MB")
-    print(f"\nTarget distribution:")
-    print(df['payment_status'].value_counts())
-    print(f"\nBasic statistics:")
-    print(df.describe())
+    logger = get_data_logger()
+
+    with logger.context("main_execution",output_path=args.output,sample_size=args.size):
+        logging.info("Starting data generation process",output_file=args.output,)
+        # Generate synthetic data
+        generator = DebtDataGenerator(random_state=args.random_state,sample_count=args.size,random_state=args.random_state)
+        df = generator.generate_data(n_samples=args.size)
+        
+        # Save the data
+        output_path = Path(args.output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        df.to_csv(output_path, index=False)
+
+        logger.data_change("SAVE", str(output_path), len(df))
+
+        logger.info("Data generation compleyted successfully",output_file=str(output_path),final_samples=len(df),final_features=len(df.columns))
+
+        # log perfromance summary
+        logger.log_performance_summary()
 
 if __name__ == "__main__":
     main()
