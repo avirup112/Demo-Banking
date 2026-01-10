@@ -74,106 +74,126 @@ class DebtDataGenerator:
                     income_range = self.income_ranges['high']
                 else:
                     income_range = self.income_ranges['medium']  # Retirement income
+                # Add some randomness
+                base_income = np.random.uniform(income_range[0], income_range[1])
+                # Add noise
+                income = base_income * np.random.normal(1.0, 0.2)
+                incomes.append(max(15000, income))  # Minimum income floor
             
-            # Add some randomness
-            base_income = np.random.uniform(income_range[0], income_range[1])
-            # Add noise
-            income = base_income * np.random.normal(1.0, 0.2)
-            incomes.append(max(15000, income))  # Minimum income floor
-        
-        # Employment status correlated with age and income
-        employment_status = []
-        for age, income in zip(ages, incomes):
-            if age < 25:
-                status = np.random.choice(['employed', 'student', 'unemployed'], p=[0.6, 0.3, 0.1])
-            elif age < 65:
-                status = np.random.choice(['employed', 'self_employed', 'unemployed'], p=[0.8, 0.15, 0.05])
-            else:
-                status = np.random.choice(['retired', 'employed', 'unemployed'], p=[0.7, 0.2, 0.1])
-            employment_status.append(status)
-        
-        # Credit score correlated with income and age
-        credit_scores = []
-        for age, income in zip(ages, incomes):
-            # Base score from income
-            base_score = 300 + (income / 300000) * 550  # Scale to 300-850 range
+            self.logger.metrics("average_income",np.mean(incomes), "Rupees")
+            self.logger.metrics("income_std", np.std(incomes), "Rupees")
             
-            # Age factor (older people tend to have better credit)
-            age_factor = min(50, age - 18) * 2  # Up to 100 points for age
+            # Employment status correlated with age and income
+            employment_status = []
+            for age, income in zip(ages, incomes):
+                if age < 25:
+                    status = np.random.choice(['employed', 'student', 'unemployed'], p=[0.6, 0.3, 0.1])
+                elif age < 65:
+                    status = np.random.choice(['employed', 'self_employed', 'unemployed'], p=[0.8, 0.15, 0.05])
+                else:
+                    status = np.random.choice(['retired', 'employed', 'unemployed'], p=[0.7, 0.2, 0.1])
+                employment_status.append(status)
+            # Credit score correlated with income and age
+            credit_scores = []
+            for age, income in zip(ages, incomes):
+                # Base score from income
+                base_score = 300 + (income / 300000) * 550  # Scale to 300-850 range
+                # Age factor (older people tend to have better credit)
+                age_factor = min(50, age - 18) * 2  # Up to 100 points for age
+                
+                # Add randomness
+                score = base_score + age_factor + np.random.normal(0, 50)
+                credit_scores.append(max(300, min(850, score)))
             
-            # Add randomness
-            score = base_score + age_factor + np.random.normal(0, 50)
-            credit_scores.append(max(300, min(850, score)))
-        
-        return pd.DataFrame({
-            'customer_age': ages,
-            'annual_income': incomes,
-            'employment_status': employment_status,
-            'credit_score': credit_scores
-        })
+            self.logger.metrics("average_credit_score",np.mean(credit_scores),"score")
+            
+            df =  pd.DataFrame({
+                'customer_age': ages,
+                'annual_income': incomes,
+                'employment_status': employment_status,
+                'credit_score': credit_scores
+            })
+
+            self.logger.data_change("CREATE","customer_demographics", len(df))
+            return df
     
+    @get_data_logger().timer("generate_debt_characteristics")
     def generate_debt_characteristics(self, n_samples: int, demographics: pd.DataFrame) -> pd.DataFrame:
         """Generate debt-related characteristics"""
         
-        # Debt amount correlated with income
-        debt_amounts = []
-        debt_types = []
-        
-        for income in demographics['annual_income']:
-            # Higher income people tend to have larger debts
-            if income < 40000:
-                debt_category = np.random.choice(['small', 'medium'], p=[0.7, 0.3])
-            elif income < 80000:
-                debt_category = np.random.choice(['small', 'medium', 'large'], p=[0.3, 0.5, 0.2])
-            else:
-                debt_category = np.random.choice(['medium', 'large', 'very_large'], p=[0.3, 0.5, 0.2])
+        with self.logger.context("debt_generation", samples=n_samples):
+            # Debt amount correlated with income
+            debt_amounts = []
+            debt_types = []
             
-            min_debt, max_debt = self.debt_amount_ranges[debt_category]
-            debt_amount = np.random.uniform(min_debt, max_debt)
-            debt_amounts.append(debt_amount)
+            for income in demographics['annual_income']:
+                # Higher income people tend to have larger debts
+                if income < 40000:
+                    debt_category = np.random.choice(['small', 'medium'], p=[0.7, 0.3])
+                elif income < 80000:
+                    debt_category = np.random.choice(['small', 'medium', 'large'], p=[0.3, 0.5, 0.2])
+                else:
+                    debt_category = np.random.choice(['medium', 'large', 'very_large'], p=[0.3, 0.5, 0.2])
+                    
+                min_debt, max_debt = self.debt_amount_ranges[debt_category]
+                debt_amount = np.random.uniform(min_debt, max_debt)
+                debt_amounts.append(debt_amount)
+                
+                # Debt type based on amount
+                if debt_amount < 5000:
+                    debt_type = np.random.choice(['credit_card', 'personal_loan', 'medical'], p=[0.5, 0.3, 0.2])
+                elif debt_amount < 20000:
+                    debt_type = np.random.choice(['credit_card', 'personal_loan', 'auto_loan'], p=[0.4, 0.4, 0.2])
+                else:
+                    debt_type = np.random.choice(['personal_loan', 'auto_loan', 'mortgage'], p=[0.4, 0.3, 0.3])
+                
+                debt_types.append(debt_type)
+
+            self.logger.metrics("average_debt_amount", np.mean(debt_amounts), "USD")
+            self.logger.debug("Debt type distribution", 
+                            debt_types=dict(zip(*np.unique(debt_types, return_counts=True))))
+            # Days overdue - correlated with credit score and debt amount
+            days_overdue = []
+            for credit_score, debt_amount in zip(demographics['credit_score'], debt_amounts):
+                # Lower credit score = more likely to be overdue longer
+                base_overdue = max(0, (750 - credit_score) / 10)  # 0-45 days base
+                
+                # Larger debts tend to be overdue longer
+                debt_factor = min(30, debt_amount / 1000)  # Up to 30 extra days
+                
+                # Add randomness
+                overdue = base_overdue + debt_factor + np.random.exponential(10)
+                days_overdue.append(max(1, min(365, overdue)))  # 1-365 days range
+
+            self.logger.metrics("average_days_overdue", np.mean(days_overdue), "days")
             
-            # Debt type based on amount
-            if debt_amount < 5000:
-                debt_type = np.random.choice(['credit_card', 'personal_loan', 'medical'], p=[0.5, 0.3, 0.2])
-            elif debt_amount < 20000:
-                debt_type = np.random.choice(['credit_card', 'personal_loan', 'auto_loan'], p=[0.4, 0.4, 0.2])
-            else:
-                debt_type = np.random.choice(['personal_loan', 'auto_loan', 'mortgage'], p=[0.4, 0.3, 0.3])
+            # Previous payment history
+            payment_history_scores = []
             
-            debt_types.append(debt_type)
-        
-        # Days overdue - correlated with credit score and debt amount
-        days_overdue = []
-        for credit_score, debt_amount in zip(demographics['credit_score'], debt_amounts):
-            # Lower credit score = more likely to be overdue longer
-            base_overdue = max(0, (750 - credit_score) / 10)  # 0-45 days base
-            
-            # Larger debts tend to be overdue longer
-            debt_factor = min(30, debt_amount / 1000)  # Up to 30 extra days
-            
-            # Add randomness
-            overdue = base_overdue + debt_factor + np.random.exponential(10)
-            days_overdue.append(max(1, min(365, overdue)))  # 1-365 days range
-        
-        # Previous payment history
-        payment_history_scores = []
-        for credit_score in demographics['credit_score']:
-            # Correlated with credit score but with noise
-            base_score = (credit_score - 300) / 550  # Normalize to 0-1
-            history_score = base_score + np.random.normal(0, 0.2)
-            payment_history_scores.append(max(0, min(1, history_score)))
-        
-        return pd.DataFrame({
-            'debt_amount': debt_amounts,
-            'debt_type': debt_types,
-            'days_overdue': days_overdue,
-            'payment_history_score': payment_history_scores
-        })
-    
+            for credit_score in demographics['credit_score']:
+                # Correlated with credit score but with noise
+                base_score = (credit_score - 300) / 550  # Normalize to 0-1
+                history_score = base_score + np.random.normal(0, 0.2)
+                payment_history_scores.append(max(0, min(1, history_score)))
+                
+            df = pd.DataFrame({
+                'debt_amount': debt_amounts,
+                'debt_type': debt_types,
+                'days_overdue': days_overdue,
+                'payment_history_score': payment_history_scores
+            })
+
+            self.logger.data_change("CREATE", "debt_characteristics", len(df))
+
+            return df
+
+    @get_data_logger().time("generate_behavioral_features")
     def generate_behavioral_features(self, n_samples: int, demographics: pd.DataFrame, 
                                    debt_chars: pd.DataFrame) -> pd.DataFrame:
         """Generate behavioral and interaction features"""
         
+        with self.logger.context("behavioral_generation", samples=n_samples):
+            self.logger.info("Generating behavioral features")
         # Contact attempts correlated with days overdue
         contact_attempts = []
         for days in debt_chars['days_overdue']:
