@@ -166,32 +166,32 @@ streamlit run streamlit_dashboard.py
 
 ## 📈 Features
 
-### 1. Data Understanding & Preprocessing (15%)
+### 1. Data Understanding & Preprocessing
 - **Comprehensive EDA**: 10+ visualization types, statistical analysis
 - **Advanced Preprocessing**: Multiple imputation strategies, outlier handling
 - **Data Quality Assessment**: Automated quality scoring and reporting
 - **Feature Engineering**: Domain-specific financial ratios, behavioral patterns
 
-### 2. Model Architecture & Scalability (25%)
+### 2. Model Architecture & Scalability
 - **Multiple Algorithms**: XGBoost, LightGBM, Random Forest, Ensemble
 - **Hyperparameter Optimization**: Optuna-based automated tuning
 - **Class Imbalance Handling**: SMOTE, ADASYN, SMOTETomek
 - **Modular Design**: Easily extensible architecture
 - **Containerization**: Docker support for scalable deployment
 
-### 3. Predictive Accuracy & Metrics (25%)
+### 3. Predictive Accuracy & Metrics
 - **Comprehensive Evaluation**: ROC-AUC, F1, Precision, Recall
 - **Business Metrics**: Recovery precision, collection recall, expected recovery rate
 - **Cross-Validation**: Stratified K-fold with robust validation
 - **Model Comparison**: Automated comparison across multiple algorithms
 
-### 4. Explainability & Interpretability (15%)
+### 4. Explainability & Interpretability
 - **SHAP Integration**: Global and local explanations
 - **LIME Support**: Instance-level explanations
 - **Feature Importance**: Multiple importance calculation methods
 - **Business Explanations**: Domain-specific interpretation of model decisions
 
-### 5. Production Readiness & MLOps (10%)
+### 5. Production Readiness & MLOps
 - **Model Registry**: DagsHub + Local SQLite-based model versioning
 - **Data Versioning**: DVC for data and model artifact versioning
 - **Pipeline Management**: DVC pipelines for reproducible workflows
@@ -200,7 +200,7 @@ streamlit run streamlit_dashboard.py
 - **Experiment Tracking**: DagsHub + MLflow integration
 - **Health Checks**: Model and data validation
 
-### 6. Innovation & Presentation (10%)
+### 6. Innovation & Presentation
 - **Interactive Dashboard**: Streamlit-based visualization
 - **Web Scraping**: External data enrichment capabilities
 - **REST API**: FastAPI-based model serving
@@ -369,6 +369,8 @@ graph TD
 | **⚙️ feature_engineering** | Creates advanced financial and behavioral features | `data/processed/X_engineered.npy` | ~60s |
 | **🤖 complete_pipeline** | Trains models, optimizes, explains, launches dashboard | `models/`, `reports/`, `explanations/`, Dashboard | ~5-10min |
 
+(what was observe on first-run)
+
 ### **Run the Complete Pipeline:**
 
 ```bash
@@ -384,13 +386,6 @@ dvc repro
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Built for AI/ML Engineer evaluation
-- Demonstrates production-ready ML system design
-- Incorporates industry best practices for debt collection analytics
-
 
 ## 🎉 **Expected Results**
 
@@ -447,8 +442,8 @@ dvc repro
 ### **📈 Comprehensive Reports:**
 - **Model Comparison**: Performance metrics across all models
 - **Feature Importance**: SHAP-based feature analysis
-- **Business Metrics**: Recovery precitil
-- **Vahesults**: Crosidation and holdout testing
+- **Business Metrics**: Recovery precision
+- **Validation Results**: Crosidation and holdout testing
 
 ### **🎨 Interactive Dashboard:**
 - **Real-time Predictions**: Upload CSV or input customer data
